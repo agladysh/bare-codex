@@ -1,5 +1,14 @@
 # Measured: codex 0.162.1, native loopback probe
 
+**Process-group qualification, 16 October 2026 (UTC+00:00).** This run's
+probe used a Boolean signal-0 helper that mapped every inspection error to
+absence. The inventory below records what that helper reported; it cannot
+certify that all groups were empty, because the report retained no errno
+for those checks. A separate native probe and lifecycle test observed
+transient EPERM during shutdown. The runtime's typed custody report keeps
+`not-permitted` distinct from `empty`. A corrected probe and repeated
+measurement are pending; the original report and release tag are retained.
+
 A public summary of one run of `probe/native-loopback.ts`. It lists selected
 facts from the run's report, and it is not the report: the exact report, with
 its local paths, thread ids and the real home paths it denied, is kept
