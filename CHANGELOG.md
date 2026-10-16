@@ -2,7 +2,13 @@
 
 The format follows Keep a Changelog: one section per released version.
 
-## Unreleased
+## 0.2.0 — 2026-10-16
+
+Typed process-group readings in the runtime and the probe, with a second
+native probe run against the same codex 0.162.1 binary, made from commit
+`264b15b0da76b66e31cd30291d963d4d196eccfd` and summarised in
+`docs/MEASURED-0.162.1.md`. A Git source release; it is not published to a
+package registry, and no consumer adoption is recorded.
 
 ### Fixed
 
@@ -14,12 +20,15 @@ The format follows Keep a Changelog: one section per released version.
   (ESRCH) or unknown (EPERM). The report keeps every reading (schema
   `bare-codex.probe/v2`). A group not shown empty stops later scenarios and
   refuses a preflight, and `cancel` no longer holds while a tool pid's
-  existence is unknown. The corrected probe has not yet been run against
-  native; the 0.1.0 summary in `docs/MEASURED-0.162.1.md` stays qualified
-  until it is.
+  existence is unknown. The corrected probe's run is summarised as the second
+  run in `docs/MEASURED-0.162.1.md`; the 0.1.0 run stays there, with its
+  qualification, as history.
 - `runCodex` reads the group at custody with `readProcessGroup` too, and
   `outcome.json` keeps every reading as `groupObservations` in `stop` and
-  `custody`.
+  `custody`. Both fields are required in the type. The schema string stays
+  `bare-codex.outcome/v1`, and `outcome.json` files written by 0.1.0 carry it
+  without these fields, so a reader of older records must treat
+  `groupObservations` as possibly absent.
 - The `group-not-permitted` diagnostic no longer says the group has members
   this process may not signal.
 
@@ -30,6 +39,10 @@ The format follows Keep a Changelog: one section per released version.
   `stopClaude` reads its final group state with the same recheck and reports
   every reading. `readProcessGroup`, `notPermittedRecheckMs` and their types
   are re-exported from `./lifecycle`.
+- `docs/PROBE.md` states what the probe's exit status does not cover: exit 0
+  ignores `stoppedAfter`, the `cancel` finding and the custody inventory, and a
+  postflight helper refusal ends in exit 2 after native has run, without
+  `report.json`. The probe's behaviour is unchanged.
 
 ## 0.1.0 — 2026-10-16
 

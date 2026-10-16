@@ -1,6 +1,6 @@
 {
   "name": "@agladysh/bare-codex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Run Codex (codex exec) headless with caller-owned auth and inherited configuration: pure planner, event reducer and outcome layers, a supervised runner, doctor, a worked CLI and a credential-free native probe.",
   "license": "MIT",
   "type": "module",

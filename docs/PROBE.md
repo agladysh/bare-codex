@@ -72,7 +72,7 @@ Tool-free scenarios use `--sandbox read-only`. The cancellation scenarios use
 `danger-full-access`, contained by the outer sandbox. Nothing here claims to
 reproduce a caller's own inherited context.
 
-The recorded run showed a further limit of this design. With a named
+Both recorded runs showed a further limit of this design. With a named
 permission profile configured, native reads `AGENTS.md` at thread start
 through its own filesystem sandbox helper, and that helper cannot start
 inside the outer sandbox. The P3 profile runs therefore fail before any model
@@ -156,6 +156,20 @@ postflight held, 1 otherwise, 2
 when refused before native, 128+n when interrupted. The report names real home
 paths that were denied, so keep it private.
 
+Exit 0 does not reflect `stoppedAfter`, the `cancel` finding or the custody
+report. A group read `not-permitted` or `occupied`, whether it stopped later
+scenarios or remained at the end, leaves the exit status unchanged, so read
+`stoppedAfter` and `custody.ownedGroupsRemaining` in the report. On a normal
+finish, owned groups that remain are recorded in `report.json` and on stdout,
+and are not killed; only the refusal and failure path summarises them on
+stderr and sends SIGKILL to those read `occupied`.
+
+The postflight uses the same helper checks as the preflight. If a postflight
+helper cannot start, or its group is not read `empty`, that is a refusal: the
+probe exits 2 after every native run has finished, and `report.json` is not
+written. Only the files already written remain, such as each run's directory
+under `runs/`.
+
 ## Reading it
 
 One run is one observation of one binary under one profile. It is not a
@@ -165,7 +179,9 @@ and compare its findings with the previous report.
 
 ## Recorded runs
 
-One run is summarised in [MEASURED-0.162.1.md](MEASURED-0.162.1.md). The
-summary is a selection of facts from the report, not the report itself. The
-exact report, with its paths, thread ids and denied home paths, is kept
-privately by whoever ran the probe.
+Two runs are summarised in [MEASURED-0.162.1.md](MEASURED-0.162.1.md): the
+0.1.0 run, of schema `bare-codex.probe/v1`, and a second run of schema
+`bare-codex.probe/v2` from commit `264b15b`. Each summary is a selection of
+facts from its report, not the report itself. The exact reports, with their
+paths, thread ids and denied home paths, are kept privately by whoever ran
+the probe.

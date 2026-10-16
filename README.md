@@ -9,14 +9,18 @@ headless, with caller-owned auth and inherited configuration.
   outcome). `runCodex` composes them with supervision and complete custody;
   `doctor` checks an invocation without a model call; `bin/bare-codex.ts` is
   the worked CLI.
-- **Built against Codex 0.162.1 sources, with one recorded probe run.** The
+- **Built against Codex 0.162.1 sources, with two recorded probe runs.** The
   native facts come from the exact openai/codex sources of `rust-v0.162.1`
   (revision `092d3acd`), listed in [docs/NATIVE-0.162.1.md](docs/NATIVE-0.162.1.md).
-  One run of the native probe ([docs/PROBE.md](docs/PROBE.md)) against the
-  stock 0.162.1 binary on macOS is summarised in
-  [docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md). Questions that run did
-  not settle stay marked open.
-- **Status: 0.1.0.** Bun ≥ 1.3, TypeScript source, no build step.
+  Two runs of the native probe ([docs/PROBE.md](docs/PROBE.md)) against the
+  same stock 0.162.1 binary on macOS are summarised in
+  [docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md): the 0.1.0 run, whose
+  process-group checks could not tell EPERM from absence, and a second run
+  with typed group readings. Questions those runs did not settle stay marked
+  open.
+- **Status: 0.2.0.** A Git source release, not published to any package
+  registry; no consumer adoption is recorded. Bun ≥ 1.3, TypeScript source, no
+  build step.
 
 ## Contracts
 
@@ -74,7 +78,7 @@ from the library.
   skips `$CODEX_HOME/config.toml` and the user and project `.rules` files. It
   does **not** skip project config layers, managed or cloud layers, or
   AGENTS.md discovery, and auth still uses `CODEX_HOME`. It is not hermetic.
-  In the recorded probe run, an isolated turn still carried the working
+  In both recorded probe runs, an isolated turn still carried the working
   root's `AGENTS.md`. Neither the user-layer nor the project-layer
   `developer_instructions` reached the request. The project's trust entry
   lived in the skipped user config, and the run does not tell those two
@@ -144,11 +148,14 @@ signal-source adapter (`src/lifecycle.ts`):
   written.
 
 An empty process group after a stop does not show that every descendant
-ended. In the recorded probe run, native 0.162.1 ran its shell tool in a
-process group of its own. Stopped through bare-codex (SIGINT first), native
-ended the tool itself. Killed by a direct SIGTERM, native left the tool
+ended. In both recorded probe runs, native 0.162.1 ran its shell tool in a
+process group of its own. Killed by a direct SIGTERM, native left the tool
 running in that separate group while its own group was empty; the probe
-identified the tool and ended it. bare-codex signals only the group it
+verified the tool and ended it by pid. Stopped through bare-codex (SIGINT
+first), native's group read empty, and in the second run the tool's pid read
+absent (ESRCH) at one moment afterwards; `ps` had already found nothing, so
+that pid was never verified as the tool. That is one tool shape on one binary,
+not evidence about other descendants. bare-codex signals only the group it
 spawned, so it does not reap anything native leaves outside that group.
 
 The CLI exits 128+n for a stop by signal n. The real cause is recorded beside
@@ -176,6 +183,11 @@ kept (`groupObservations`, in both `stop` and `custody`). A group that signal
 0 answers with EPERM through a 1 s recheck is reported as `not-permitted`
 (`group-not-permitted`). That shows neither that anything is left nor whose
 it is, so it is never counted as empty.
+
+`stop.groupObservations` and `custody.groupObservations` are required from
+0.2.0. The schema string is still `bare-codex.outcome/v1`, and `outcome.json`
+files written by 0.1.0 carry it without these fields, so a reader of older
+records must treat them as possibly absent.
 
 ## Library
 
@@ -244,9 +256,11 @@ holding; otherwise nothing native runs. It reports protocol, config
 precedence, permissions, output schema, resume and fork, cancellation, retries,
 strict config and database location, plus an optional synthetic refresh-race
 experiment. It ends with a custody report of owned process groups and
-listeners. See [docs/PROBE.md](docs/PROBE.md). One recorded run is summarised
-in [docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md); it did not include
-the refresh-race experiment.
+listeners. Its exit status does not reflect skipped scenarios, the
+cancellation finding or that custody report, so read the report itself. See
+[docs/PROBE.md](docs/PROBE.md). Two recorded runs are summarised in
+[docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md); neither included the
+refresh-race experiment.
 
 ## Limits
 
@@ -267,4 +281,6 @@ the refresh-race experiment.
 
 This initial version (library, CLI, tests, probe and documentation) was written
 by Claude Opus 5.5 (Anthropic) and integrated with corrections by Codex (OpenAI),
-both AI agents, from the exact Codex 0.162.1 sources. MIT licensed; see [LICENSE](LICENSE).
+both AI agents, from the exact Codex 0.162.1 sources. The 0.2.0 typed-probe repair and release
+documentation were written by Anthropic Claude (AI), integrated with bounded corrections
+and measured by Codex (AI). MIT licensed; see [LICENSE](LICENSE).

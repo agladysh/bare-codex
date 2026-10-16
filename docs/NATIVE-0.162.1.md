@@ -1,13 +1,14 @@
 # Native contract of codex 0.162.1
 
-The facts bare-codex 0.1.0 encodes. Each is from the openai/codex sources of
+The facts bare-codex 0.2.0 encodes. Each is from the openai/codex sources of
 `rust-v0.162.1`, revision `092d3acd`, by path and line. Where the extracted
 sources do not settle a question, it is marked **open**, and the native probe
 ([PROBE.md](PROBE.md)) records what the installed binary actually does.
 
-These facts were read from source. One run of the native probe against the
-stock 0.162.1 binary is recorded in the last section and summarised in
-[MEASURED-0.162.1.md](MEASURED-0.162.1.md). Rows that run settled say so;
+These facts were read from source. Two runs of the native probe against the
+stock 0.162.1 binary are summarised in
+[MEASURED-0.162.1.md](MEASURED-0.162.1.md), which distinguishes their process
+visibility evidence. Rows with observed behaviour say so;
 the rest stay source-only or open. Re-check them whenever `codex --version`
 reports anything else. `doctor` and every outcome say so when it does.
 
@@ -75,7 +76,7 @@ reports anything else. `doctor` and every outcome say so when it does.
 |---|---|
 | `tokio::signal::ctrl_c()` is awaited once; on SIGINT exec sends `turn/interrupt` for the running turn | `exec/src/lib.rs:1190-1196, 1305-1327` |
 | No SIGTERM or SIGHUP handler: they end the process by their default action | (no handler in `exec/src/lib.rs`) |
-| **Observed:** the shell tool (`exec_command`) ran in a process group of its own. After SIGINT, native ended it; after a direct SIGTERM to native, it kept running outside native's group, which was empty. An empty group does not show that every descendant ended | probe P6, P6b |
+| **Observed:** the shell tool (`exec_command`) ran in a process group of its own. After SIGINT, its pid read absent in the typed replay, but was no longer verifiable; after a direct SIGTERM to native, the verified tool kept running outside native's group, which was empty. An empty group does not show that every descendant ended | probe P6, P6b |
 
 ## `--version`
 
@@ -116,7 +117,7 @@ cannot lock refreshes made by native processes.
 
 ## Observed with the installed binary
 
-From one probe run against the stock 0.162.1 binary on macOS, inside the
+From two probe runs against the stock 0.162.1 binary on macOS, inside the
 probe's outer sandbox, with synthetic homes and a loopback provider. See
 [MEASURED-0.162.1.md](MEASURED-0.162.1.md) for provenance and limits.
 
@@ -127,11 +128,11 @@ probe's outer sandbox, with synthetic homes and a loopback provider. See
 | `--output-schema` reaches the request as `text.format` of type `json_schema`, `strict: true`, name `codex_output_schema` | P4 |
 | Same-key precedence for `developer_instructions`: the trusted project layer's value replaced the user layer's, and a `-c` value replaced the project's; `AGENTS.md` reached the request in all three runs | P2 |
 | With `--ignore-user-config --ignore-rules`, `AGENTS.md` still reached the request; neither layer's `developer_instructions` did | P2 |
-| In both runs with a named permission profile configured (inherited, or via `-c default_permissions`), thread start failed reading `AGENTS.md` through native's filesystem sandbox helper (`sandbox-exec: sandbox_apply: Operation not permitted` inside the outer sandbox): exit 1, no event, no model request | P3 |
+| In each recorded probe run, both named-profile cases (inherited, or via `-c default_permissions`) failed at thread start reading `AGENTS.md` through native's filesystem sandbox helper (`sandbox-exec: sandbox_apply: Operation not permitted` inside the outer sandbox): exit 1, no event, no model request | P3 |
 | Legacy `--sandbox read-only` recorded approval policy `never`, sandbox `read-only` and a root-read-only permission profile; `workspace-write` added writes to the working root, `/tmp` and `$TMPDIR` with network restricted; `--approve-for-me` recorded the same workspace-write permissions with approval policy `on-request` and reviewer `auto_review` | P3 |
 | Resume by UUID kept the thread id and replayed the earlier turn; fork started a new thread and replayed it | P5 |
 | Resume from a home without the rollout exited 1 with no event: `thread/resume failed: no rollout found for thread id …` | P5 |
-| SIGINT while a tool ran: native reported no terminal event and exited 1; the tool did not survive | P6 |
+| SIGINT while a tool ran: native reported no terminal event and exited 1; in the typed replay, native's group read empty and the unverified tool pid read absent at one moment | P6 |
 | A stream truncated before `response.completed` produced an `error` event `Reconnecting... 1/2 (stream disconnected before completion: …)`, then `turn.completed` and exit 0. With `stream_max_retries = 2`, three truncated streams ended in `turn.failed` and exit 1 | P7 |
 | An HTTP 500 followed by success completed with no `error` event | P7 |
 | Without `CODEX_SQLITE_HOME`, the databases (`state_5`, `logs_2`, `queue_1`, `memories_1`, `goals_1`, `thread_history_1`) were created in `CODEX_HOME`; with it, all of them were in that directory and none in `CODEX_HOME` | P1, P9 |
