@@ -18,7 +18,8 @@
  *    `last-message.txt` itself.
  * 6. After native exits, a custody guard keeps stop signals from ending this
  *    process. Supervision is finished (waiting out any stop), the pipes are
- *    drained within a bound, the group's state is recorded, `outcome.json`
+ *    drained within a bound, the group is read with lifecycle's
+ *    `readProcessGroup` (every reading is kept), `outcome.json`
  *    is concluded, and only then is the guard released.
  *
  * Nothing is deleted. Processes native leaves in its group after exiting on
@@ -30,7 +31,7 @@ import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, wr
 import { join, resolve } from 'node:path';
 import { finishStream, initialStreamState, JsonlSplitter, parseLine, reduceParsed, type ParsedEvent } from './events.ts';
 import { findOnPath, inspectExecutable, probeVersion, type ExecutableFacts, type VersionFacts } from './executable.ts';
-import { guardCustody, processGroupState, stopSignals, superviseCodex, type CodexSupervisorEvent, type CustodyGuard } from './lifecycle.ts';
+import { guardCustody, readProcessGroup, stopSignals, superviseCodex, type CodexSupervisorEvent, type CustodyGuard } from './lifecycle.ts';
 import { conclude, refusedOutcome, spawnFailedOutcome, stoppedBeforeSpawnOutcome, type CodexOutcome, type CustodyFacts, type Diagnostic } from './outcome.ts';
 import { planInvocation, planRecord, type PlanOptions, type PlanRecord } from './plan.ts';
 import type { EnvPolicy, Refusal } from './types.ts';
@@ -282,7 +283,7 @@ function custodyDiagnostics(custody: CustodyFacts, stopped: boolean): Diagnostic
       : { code: 'leftover-processes', detail: `native exited, but process group ${custody.processGroup} still has processes; they were not signalled and may still be running` });
   }
   if (custody.groupState === 'not-permitted') {
-    out.push({ code: 'group-not-permitted', detail: `process group ${custody.processGroup} has members this process may not signal` });
+    out.push({ code: 'group-not-permitted', detail: `signal 0 to process group ${custody.processGroup} failed with EPERM through every reading; that shows neither that anything there is still running nor whose it is, so the group is not shown empty` });
   }
   if (custody.writeError !== null) {
     out.push({ code: 'custody-write-failed', detail: custody.writeError });
@@ -486,7 +487,7 @@ export async function runCodex(options: RunOptions): Promise<RunResult> {
     const [ stdoutDrained, stderrDrained ] = await Promise.all([ stdout.drain(drainMs), stderr.drain(drainMs) ]);
     const stream = finishStream(reduced.stream, splitter.end());
     const stdinError = await stdinDelivered;
-    const groupState = processGroup === null ? null : processGroupState(processGroup);
+    const group = processGroup === null ? null : await readProcessGroup(processGroup);
     const lastMessage = existsSync(files.lastMessage) ? readFileSync(files.lastMessage, 'utf8') : null;
     const outcome = conclude({
       stream,
@@ -499,13 +500,15 @@ export async function runCodex(options: RunOptions): Promise<RunResult> {
         nativeSignal: report.signal,
         escalated: report.escalated,
         groupState: report.groupState,
+        groupObservations: report.groupObservations,
       },
       nativeVersion: nativeVersion?.version ?? null,
       executableClass,
     });
     const custody: CustodyFacts = {
       processGroup,
-      groupState,
+      groupState: group?.state ?? null,
+      groupObservations: group?.observations ?? [],
       stdoutDrained,
       stderrDrained,
       writeError: errors.write,

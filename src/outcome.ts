@@ -78,6 +78,13 @@ export interface FailureFacts {
   native: NativeFailureClass | null,
 }
 
+/** One signal-0 reading of a process group, `elapsedMs` after the first of its set. */
+export interface GroupObservation {
+  elapsedMs: number,
+  /** `occupied`, `empty` (ESRCH), or `not-permitted` (EPERM, which shows neither that the group is empty nor whose anything left in it is). */
+  state: string,
+}
+
 export interface StopFacts {
   /** What started the stop: a received signal, the caller's abort, or bare-codex itself. */
   cause: string,
@@ -85,14 +92,23 @@ export interface StopFacts {
   nativeSignal: string | null,
   /** Whether SIGKILL followed. */
   escalated: boolean,
-  /** The process group's state when the stop ended. */
+  /** The process group's state when the stop ended, as lifecycle's `readProcessGroup` read it. */
   groupState: string | null,
+  /** Every reading `groupState` was decided from, in order; empty when nothing was spawned or there is no group. */
+  groupObservations: GroupObservation[],
 }
 
 export interface CustodyFacts {
   processGroup: number | null,
-  /** The group's state after supervision ended. Empty does not show that descendants in other groups ended. */
+  /**
+   * The group's state after supervision ended, read by lifecycle's
+   * `readProcessGroup`: a `not-permitted` reading is read again for up to 1 s
+   * and, if it persists, kept as it is, never counted as empty. Empty does not
+   * show that descendants in other groups ended.
+   */
   groupState: string | null,
+  /** Every reading `groupState` was decided from, in order; empty when there is no group. */
+  groupObservations: GroupObservation[],
   stdoutDrained: boolean,
   stderrDrained: boolean,
   writeError: string | null,
@@ -462,7 +478,7 @@ export function stoppedBeforeSpawnOutcome(cause: string, executableClass: Execut
     status: 'stopped',
     reason: 'stopped-before-spawn',
     detail: `stopped (${cause}) before native was spawned; nothing was started and nothing was sent`,
-    stop: { cause, nativeSignal: null, escalated: false, groupState: null },
+    stop: { cause, nativeSignal: null, escalated: false, groupState: null, groupObservations: [] },
     executableClass,
     nativeVersion,
   }, initialStreamState());

@@ -5,7 +5,7 @@
     "": {
       "name": "@agladysh/bare-codex",
       "dependencies": {
-        "@agladysh/bare-claude": "github:agladysh/bare-claude#d99300eede9cb04f18897ea74fddaa5a5ea4e782",
+        "@agladysh/bare-claude": "github:agladysh/bare-claude#0fa4f8a7c4688fa6b82507fe9a53920147a6cfb7",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -16,7 +16,7 @@
     },
   },
   "packages": {
-    "@agladysh/bare-claude": ["@agladysh/bare-claude@github:agladysh/bare-claude#d99300e", { "dependencies": { "@logdna/tail-file": "^4.0.2", "arktype": "^2.2.3", "deepmerge-ts": "^7.1.5", "isbinaryfile": "^6.0.0" }, "peerDependencies": { "typescript": "^7" }, "bin": { "bare-claude": "bin/bare-claude.ts" } }, "agladysh-bare-claude-d99300e", "sha512-tEzQ6147Niyig/8B2AFPRJTO//ckLTmGy+kiUQlohqG5V5bL9RBd+1vazewAifnktJnKUniv4s04eNqukiZ4Dg=="],
+    "@agladysh/bare-claude": ["@agladysh/bare-claude@github:agladysh/bare-claude#0fa4f8a", { "dependencies": { "@logdna/tail-file": "^4.0.2", "arktype": "^2.2.3", "deepmerge-ts": "^7.1.5", "isbinaryfile": "^6.0.0" }, "peerDependencies": { "typescript": "^7" }, "bin": { "bare-claude": "bin/bare-claude.ts" } }, "agladysh-bare-claude-0fa4f8a", "sha512-BEVo0rzzV+5sEhboq8P/v+PF5xyVI2lqO55bWI4x0hvq1yytP5A9xWTwCOCjEYXAg4tbctvm0oBjDQtybnJafA=="],
 
     "@ark/schema": ["@ark/schema@0.56.7", "", { "dependencies": { "@ark/util": "0.56.7" } }, "sha512-jmoOJlYIc4k1uv8oYBDNOFnAsKk2a2D9t/D6npF2JUfW4ecPB0v6ce6lruKg7lkBxIBA8Z7UtxfmvephYbhUGQ=="],
 

@@ -73,12 +73,19 @@ export function readGrandchild(dir: string): number | null {
   return existsSync(path) ? Number(readFileSync(path, 'utf8')) : null;
 }
 
+/**
+ * Whether `pid` exists, by signal 0: false only on ESRCH. EPERM shows neither
+ * that the process ended nor whose it is, so it is thrown, never read as gone.
+ */
 export function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+      return false;
+    }
+    throw error;
   }
 }
 

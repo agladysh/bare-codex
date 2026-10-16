@@ -30,14 +30,18 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { parseArgs } from 'node:util';
 import type { ParsedEvent } from '../src/events.ts';
 import { inspectExecutable, probeVersion, type ExecutableFacts, type VersionFacts } from '../src/executable.ts';
+import { processGroupState, readProcessGroup, type ProcessGroupReading } from '../src/lifecycle.ts';
 import type { CodexOutcome } from '../src/outcome.ts';
 import { MEASURED_NATIVE_VERSION, NATIVE_SOURCE_REVISION, type ConfigOverride } from '../src/plan.ts';
 import { runCodex, type SpawnInfo } from '../src/run.ts';
 import { isJsonObject, type ConfigPolicy, type JsonValue, type PermissionsPolicy, type SessionPolicy } from '../src/types.ts';
 import {
+  cancelLeftNothing,
   createStub,
   fingerprint,
+  groupCustody,
   judgeIsolation,
+  pidExists,
   requestSummary,
   sandboxProfile,
   sequenceScript,
@@ -75,29 +79,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function groupAlive(pgid: number): boolean {
-  try {
-    process.kill(-pgid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
+/**
+ * SIGKILL to a group this probe spawned and still owns. A failed send is not
+ * read as anything: callers that need the group's state read it again.
+ */
 function killGroup(pgid: number): void {
   try {
     process.kill(-pgid, 'SIGKILL');
   } catch {
-    // already gone
-  }
-}
-
-function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
+    // ESRCH or EPERM; the next reading of the group says which.
   }
 }
 
@@ -152,7 +142,8 @@ interface Owned {
   timedOut: boolean,
   stdout: string,
   stderr: string,
-  groupRemained: boolean,
+  /** The group after the run, read by lifecycle; null when nothing was spawned. */
+  group: ProcessGroupReading | null,
   spawnError: string | null,
 }
 
@@ -170,7 +161,7 @@ async function runOwned(command: readonly string[], env: Record<string, string>,
   const failed = new Promise<string>(done => child.once('error', error => done(String(error))));
   const pid = child.pid;
   if (pid === undefined) {
-    return { code: null, signal: null, timedOut: false, stdout: '', stderr: '', groupRemained: false, spawnError: await failed };
+    return { code: null, signal: null, timedOut: false, stdout: '', stderr: '', group: null, spawnError: await failed };
   }
   ownedGroups.set(pid, label);
   const first = await within(exited, deadlineMs, null);
@@ -179,17 +170,17 @@ async function runOwned(command: readonly string[], env: Record<string, string>,
     try {
       process.kill(-pid, 'SIGTERM');
     } catch {
-      // already gone
+      // ESRCH or EPERM; the group is read below.
     }
-    await waitUntil(() => !groupAlive(pid), GRACE_MS);
+    await waitUntil(() => processGroupState(pid) !== 'occupied', GRACE_MS);
   }
-  if (groupAlive(pid)) {
+  if (processGroupState(pid) === 'occupied') {
     killGroup(pid);
-    await waitUntil(() => !groupAlive(pid), 2_000);
+    await waitUntil(() => processGroupState(pid) !== 'occupied', 2_000);
   }
   const exit = first ?? await within(exited, GRACE_MS, null);
-  const groupRemained = groupAlive(pid);
-  if (!groupRemained) {
+  const group = await readProcessGroup(pid);
+  if (group.state === 'empty') {
     ownedGroups.delete(pid);
   }
   return {
@@ -198,7 +189,7 @@ async function runOwned(command: readonly string[], env: Record<string, string>,
     timedOut,
     stdout: Buffer.concat(out).toString('utf8'),
     stderr: Buffer.concat(err).toString('utf8'),
-    groupRemained,
+    group,
     spawnError: null,
   };
 }
@@ -442,10 +433,16 @@ interface Observation {
   requests: RequestView[],
   rollout: RolloutView,
   deadlineHit: boolean,
-  /** Native's group still had processes when bare-codex returned. */
+  /** Native's group, read by lifecycle when bare-codex returned; null when this probe read none. */
+  groupAfterRun: ProcessGroupReading | null,
+  /** The same group after the probe's own SIGKILL, sent only when it read `occupied`. */
+  groupAfterProbeKill: ProcessGroupReading | null,
+  /** `groupAfterRun` read `occupied`. False does not mean empty: read the state. */
   groupAliveAfterRun: boolean,
-  /** ...and still had them after the probe's own SIGKILL: only this stops later scenarios. */
+  /** `groupAfterProbeKill` read `occupied`. */
   groupSurvivedProbeKill: boolean,
+  /** The run spawned a group that was not shown empty at the end, so later scenarios are skipped. */
+  groupStopsLaterRuns: boolean,
   /** Decoy connections while this run (and any concurrent one) was active. */
   decoyConnections: number,
   /** Stand-in requests during the run whose path named no route. */
@@ -499,18 +496,22 @@ async function runScenario(ctx: Ctx, spec: ScenarioSpec): Promise<Observation> {
       },
       onEvent: spec.onEvent,
     });
-    // Only a group this run spawned and still owns is ever signalled.
-    let groupAliveAfterRun = false;
-    let groupSurvivedProbeKill = false;
+    // Only a group this run spawned and still owns is ever signalled. A
+    // spawned group this run did not read is not shown empty either.
     const pgid = spawned.pgid;
+    let groupAfterRun: ProcessGroupReading | null = null;
+    let groupAfterProbeKill: ProcessGroupReading | null = null;
+    let groupStopsLaterRuns = pgid !== null;
     if (pgid !== null && ownedGroups.get(pgid) === spec.name) {
-      groupAliveAfterRun = groupAlive(pgid);
-      if (groupAliveAfterRun) {
+      groupAfterRun = await readProcessGroup(pgid);
+      if (groupAfterRun.state === 'occupied') {
         killGroup(pgid);
-        await waitUntil(() => !groupAlive(pgid), 2_000);
-        groupSurvivedProbeKill = groupAlive(pgid);
+        await waitUntil(() => processGroupState(pgid) !== 'occupied', 2_000);
+        groupAfterProbeKill = await readProcessGroup(pgid);
       }
-      if (!groupSurvivedProbeKill) {
+      const end = groupCustody(groupAfterRun, groupAfterProbeKill);
+      groupStopsLaterRuns = end.stopsLaterRuns;
+      if (end.state === 'empty') {
         ownedGroups.delete(pgid);
       }
     }
@@ -527,8 +528,11 @@ async function runScenario(ctx: Ctx, spec: ScenarioSpec): Promise<Observation> {
       requests: fresh.filter(request => request.route === route).map(request => requestSummary(request, markers)),
       rollout: readRollouts(spec.home, result.outcome.threadId),
       deadlineHit: timing.deadlineHit,
-      groupAliveAfterRun,
-      groupSurvivedProbeKill,
+      groupAfterRun,
+      groupAfterProbeKill,
+      groupAliveAfterRun: groupAfterRun?.state === 'occupied',
+      groupSurvivedProbeKill: groupAfterProbeKill?.state === 'occupied',
+      groupStopsLaterRuns,
       decoyConnections: ctx.decoy.duringNative - decoyBefore,
       unattributedRequests: fresh.filter(request => request.route === '(unattributed)').length,
     };
@@ -611,7 +615,7 @@ async function runScenarios(ctx: Ctx, experiments: ReadonlySet<string>): Promise
   const proceed = () => probeState.interrupted === null && stop.after === null;
   const record = (observation: Observation): Observation => {
     observations.push(observation);
-    if (observation.groupSurvivedProbeKill) {
+    if (observation.groupStopsLaterRuns) {
       stop.after = observation.name;
     }
     return observation;
@@ -718,7 +722,7 @@ async function runScenarios(ctx: Ctx, experiments: ReadonlySet<string>): Promise
   }
 
   // P6: interruption of a running tool through bare-codex (SIGINT), and the raw SIGTERM contrast.
-  const cancel = async (name: string, mode: 'abort' | 'sigterm'): Promise<{ observation: Observation, tool: ToolIdentity | null, toolSurvived: boolean, toolAliveUnverified: boolean, probeKilledTool: boolean, triggered: boolean }> => {
+  const cancel = async (name: string, mode: 'abort' | 'sigterm'): Promise<{ observation: Observation, tool: ToolIdentity | null, toolSurvived: boolean, toolAliveUnverified: boolean | null, probeKilledTool: boolean, triggered: boolean }> => {
     const work = workDir(ctx, name);
     const pidFile = join(work, 'tool.pid');
     const toolDuration = `600.${Number.parseInt(Buffer.from(basename(ctx.root)).toString('hex').slice(-12), 16)}`;
@@ -761,7 +765,8 @@ async function runScenarios(ctx: Ctx, experiments: ReadonlySet<string>): Promise
     const toolPid = read !== null && Number.isInteger(read) && read > 1 ? read : null;
     const tool = toolPid === null ? null : toolIdentity(toolPid, trigger.group, expectedToolArgs);
     const toolSurvived = tool?.verified === true;
-    const toolAliveUnverified = tool !== null && !tool.verified && pidAlive(tool.pid);
+    // Whether an unverified pid still exists: true, false (ESRCH) or null (EPERM, unknown).
+    const toolAliveUnverified = tool === null || tool.verified ? false : pidExists(tool.pid);
     let probeKilledTool = false;
     if (tool !== null && toolSurvived) {
       // Verified as the probe's own tool process (its script wrote this pid and
@@ -778,13 +783,19 @@ async function runScenarios(ctx: Ctx, experiments: ReadonlySet<string>): Promise
   const interrupted = await cancel('p6-cancel', 'abort');
   const stopFacts = interrupted.observation.outcome.stop;
   const cancelHeld = interrupted.triggered && interrupted.observation.outcome.status === 'stopped' && stopFacts?.cause === 'abort' && stopFacts.nativeSignal === 'SIGINT'
-    && interrupted.observation.outcome.custody?.groupState === 'empty' && !interrupted.toolSurvived && !interrupted.toolAliveUnverified && !interrupted.observation.groupAliveAfterRun;
+    && cancelLeftNothing({
+      custodyGroupState: interrupted.observation.outcome.custody?.groupState ?? null,
+      probeGroup: interrupted.observation.groupAfterRun,
+      toolSurvived: interrupted.toolSurvived,
+      toolAliveUnverified: interrupted.toolAliveUnverified,
+    });
   findings['cancel'] = {
     status: !interrupted.triggered ? 'inconclusive' : cancelHeld ? 'held' : 'not-held',
     evidence: {
       ...Object(brief(interrupted.observation)),
       stop: stopFacts,
       custody: interrupted.observation.outcome.custody,
+      groupAfterRun: interrupted.observation.groupAfterRun,
       tool: interrupted.tool,
       toolSurvived: interrupted.toolSurvived,
       toolAliveUnverified: interrupted.toolAliveUnverified,
@@ -805,8 +816,11 @@ async function runScenarios(ctx: Ctx, experiments: ReadonlySet<string>): Promise
       toolSurvived: contrast.toolSurvived,
       toolAliveUnverified: contrast.toolAliveUnverified,
       probeKilledTool: contrast.probeKilledTool,
+      groupAfterRun: contrast.observation.groupAfterRun,
+      groupAfterProbeKill: contrast.observation.groupAfterProbeKill,
       groupAliveAfterRun: contrast.observation.groupAliveAfterRun,
       groupSurvivedProbeKill: contrast.observation.groupSurvivedProbeKill,
+      groupStopsLaterRuns: contrast.observation.groupStopsLaterRuns,
     },
   };
   if (!proceed()) {
@@ -1029,8 +1043,8 @@ async function main(): Promise<number> {
       if (run.spawnError !== null) {
         throw new Refusal(`preflight ${label} could not start: ${run.spawnError}`);
       }
-      if (run.groupRemained) {
-        throw new Refusal(`preflight ${label} left processes in its group`);
+      if (run.group?.state !== 'empty') {
+        throw new Refusal(`preflight ${label}: its process group read ${run.group?.state ?? 'nothing'} after the run, not empty`);
       }
       try {
         const last = run.stdout.trim().split(LF).at(-1) ?? '';
@@ -1071,7 +1085,7 @@ async function main(): Promise<number> {
     };
     const postflight = probeState.interrupted === null ? await preflight('post') : null;
     report = {
-      schema: 'bare-codex.probe/v1',
+      schema: 'bare-codex.probe/v2',
       native: { path: native.path, realpath: native.realpath, sha256: native.sha256, size: native.size, class: native.class, version, measuredVersion: MEASURED_NATIVE_VERSION, sourceRevision: NATIVE_SOURCE_REVISION },
       root,
       decoyHome: decoy.dir,
@@ -1093,7 +1107,10 @@ async function main(): Promise<number> {
     await within(new Promise<void>(done => decoyServer.close(() => done())), 2_000, undefined);
   }
 
-  const groups = [ ...ownedGroups.entries() ].map(([ pgid, label ]) => ({ pgid, label, alive: groupAlive(pgid) }));
+  const groups: (ProcessGroupReading & { pgid: number, label: string })[] = [];
+  for (const [ pgid, label ] of ownedGroups) {
+    groups.push({ pgid, label, ...await readProcessGroup(pgid) });
+  }
   report['custody'] = {
     ownedGroupsRemaining: groups,
     listeners: { provider: (await listenerClosed(port)) ? 'closed' : 'open', decoy: (await listenerClosed(decoyPort)) ? 'closed' : 'open' },
@@ -1111,12 +1128,24 @@ try {
   code = await main();
 } catch (error) {
   process.stderr.write(`native-loopback: ${error instanceof Refusal ? 'refused' : 'failed'}: ${errorMessage(error)}${LF}`);
-  const remaining = [ ...ownedGroups.keys() ].filter(groupAlive);
+  const remaining: number[] = [];
+  const notShownEmpty: number[] = [];
+  for (const pgid of ownedGroups.keys()) {
+    const reading = await readProcessGroup(pgid);
+    if (reading.state === 'occupied') {
+      remaining.push(pgid);
+    } else if (reading.state === 'not-permitted') {
+      notShownEmpty.push(pgid);
+    }
+  }
   for (const pgid of remaining) {
     killGroup(pgid);
   }
   if (remaining.length > 0) {
-    process.stderr.write(`native-loopback: owned process groups still alive were sent SIGKILL: ${remaining.join(', ')}${LF}`);
+    process.stderr.write(`native-loopback: owned process groups still occupied were sent SIGKILL: ${remaining.join(', ')}${LF}`);
+  }
+  if (notShownEmpty.length > 0) {
+    process.stderr.write(`native-loopback: owned process groups not shown empty (signal 0 failed with EPERM through every reading): ${notShownEmpty.join(', ')}${LF}`);
   }
   code = error instanceof Refusal ? 2 : 1;
 }

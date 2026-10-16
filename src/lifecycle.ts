@@ -18,7 +18,10 @@
  * internal stop take the same path. Everything else is lifecycle's own: only
  * the spawned process and the group it leads are ever signalled, a stop that
  * arrives before the spawn is held, a second stop request escalates, and
- * custody waits for the stop to end.
+ * custody waits for the stop to end. Group readings are lifecycle's too:
+ * `readProcessGroup` keeps `not-permitted` (EPERM) apart from `empty` (ESRCH),
+ * reads a `not-permitted` group again for up to `notPermittedRecheckMs`, and
+ * returns every reading.
  *
  * One residual: `Supervisor.finish()` stops a run it finds still going with
  * SIGTERM. `runCodex` never relies on that: it asks this source for an
@@ -26,10 +29,14 @@
  */
 
 import {
+  notPermittedRecheckMs,
   processGroupState,
+  readProcessGroup,
   signalExitStatus,
   stopSignals,
   superviseSignals,
+  type ProcessGroupObservation,
+  type ProcessGroupReading,
   type ProcessGroupState,
   type SignalSource,
   type StopReport,
@@ -39,8 +46,8 @@ import {
   type SupervisorEvent,
 } from '@agladysh/bare-claude/lifecycle';
 
-export { processGroupState, signalExitStatus, stopSignals };
-export type { ProcessGroupState, SignalSource, StopReport, StopSignal, StoppableRun, Supervisor };
+export { notPermittedRecheckMs, processGroupState, readProcessGroup, signalExitStatus, stopSignals };
+export type { ProcessGroupObservation, ProcessGroupReading, ProcessGroupState, SignalSource, StopReport, StopSignal, StoppableRun, Supervisor };
 
 /** The one signal native Codex turns into a turn interruption. */
 export const NATIVE_INTERRUPT_SIGNAL = 'SIGINT' satisfies StopSignal;

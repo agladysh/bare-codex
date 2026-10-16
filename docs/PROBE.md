@@ -94,7 +94,7 @@ synthetic home, because `--ignore-user-config` skips the home's
 | `permissions` | P3: inherited named profile, `--sandbox read-only`, `--sandbox workspace-write`, `--approve-for-me`, `-c default_permissions` | observed: the turn context native recorded in its rollout, and permission tags in the request. Never "enforced" |
 | `output-schema` | P4 | **held** if completed and the request carried `text.format` |
 | `resume`, `fork`, `resume-other-home` | P5 | resume **held** if the thread id was kept and the earlier turn was replayed; fork **held** if the thread is new and the earlier turn was replayed; cross-home observed |
-| `cancel` | P6: a running `sleep 600` tool, stopped by an abort through bare-codex | **held** if stopped by `abort` with SIGINT first, the group ended empty and the tool did not survive. Inconclusive if no command started |
+| `cancel` | P6: a running `sleep 600` tool, stopped by an abort through bare-codex | **held** if stopped by `abort` with SIGINT first, bare-codex's custody and the probe's own reading both read the group `empty`, the tool did not survive, and any unverified tool pid read as gone (ESRCH), not unknown (EPERM). Inconclusive if no command started |
 | `sigterm-contrast` | P6b: the same, but SIGTERM sent straight to native | observed: exit, group state and whether the tool survived |
 | `retry-recovered`, `retry-exhausted`, `retry-http-500` | P7: a truncated stream once, always, and HTTP 500 once | recovered **held** if completed with recovered errors; exhausted **held** if failed; 500 observed |
 | `strict-config` | P8: `--strict-config`, with and without an unknown `-c` key | observed |
@@ -115,18 +115,31 @@ headers are recorded as fingerprints only.
 
 `report.json` ends with:
 
-- the process groups the probe still owns, and whether each is alive;
+- the process groups the probe still owns, each with its last state and every
+  reading of it;
 - whether both listeners are closed, checked by connecting after stop;
 - every directory it created.
 
-After each run, a group that still has processes is recorded
-(`groupAliveAfterRun`) and then sent SIGKILL by the probe, which spawned it
-and still owns it. Later scenarios are skipped only if the group survives
-that SIGKILL (`groupSurvivedProbeKill`), because only then could it still
-talk to the stand-in. A tool process from the cancellation scenarios is
+Process groups are read with `readProcessGroup` from the pinned
+`@agladysh/bare-claude/lifecycle`, never with a signal-0 check of the probe's
+own. A reading is `occupied`, `empty` (ESRCH) or `not-permitted` (EPERM). A
+`not-permitted` reading is read again every 50 ms for up to 1 s, and the
+report keeps every reading. EPERM shows neither that a group is empty nor
+whose anything left in it is, so it is never counted as `empty`. After each
+run the group is read (`groupAfterRun`). A group read `occupied` is sent
+SIGKILL by the probe, which spawned it and still owns it, and read again
+(`groupAfterProbeKill`). Later scenarios are skipped unless the last reading
+is `empty` (`groupStopsLaterRuns`), because anything else could still talk to
+the stand-in. A preflight helper whose group is not read `empty` is a
+refusal. `groupAliveAfterRun` and `groupSurvivedProbeKill` mean `occupied`
+and nothing more. Reports of schema `bare-codex.probe/v1` took every signal-0
+error as absence, so their `false` and `alive: false` can mean unknown.
+
+A tool process from the cancellation scenarios is
 identified before anything is done to it: its pid comes from a file its own
 script wrote, and `ps` must show the exact sleep arguments, including a suffix derived from the probe's unique directory name. Only then is it killed. An
-unverified pid is reported and left alone. The tool's process group is
+unverified pid is reported and never signalled; whether it still exists is
+recorded as true, false (ESRCH) or null (EPERM: unknown). The tool's process group is
 recorded, so the report shows whether native kept its tools in its own group.
 
 Two native-level negative controls are recorded. `native-decoy-traffic`

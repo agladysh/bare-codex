@@ -2,12 +2,19 @@
 
 **Process-group qualification, 16 October 2026 (UTC+00:00).** This run's
 probe used a Boolean signal-0 helper that mapped every inspection error to
-absence. The inventory below records what that helper reported; it cannot
-certify that all groups were empty, because the report retained no errno
-for those checks. A separate native probe and lifecycle test observed
+absence, and a pid check of the same kind. The inventory below records what
+those helpers reported; it cannot certify that all groups were empty,
+because the report retained no errno for those checks. They decided the
+"Owned process groups alive at the end" row, whether a run left a group that
+should stop later scenarios, the preflight's check that its helpers left
+nothing in their groups, and, in the `cancel` rule, that no unverified tool
+pid still existed. A separate native probe and lifecycle test observed
 transient EPERM during shutdown. The runtime's typed custody report keeps
-`not-permitted` distinct from `empty`. A corrected probe and repeated
-measurement are pending; the original report and release tag are retained.
+`not-permitted` distinct from `empty`. The probe's source has since been
+corrected to use lifecycle's typed, rechecked readings (see `PROBE.md`), but
+the corrected probe has not been run: the repeated measurement is pending,
+and nothing below comes from it. The original report and release tag are
+retained.
 
 A public summary of one run of `probe/native-loopback.ts`. It lists selected
 facts from the run's report, and it is not the report: the exact report, with
@@ -35,7 +42,7 @@ provider or a real Codex home.
 | The same check after the scenarios | held |
 | Decoy connections while any native run was active | 0 (`native-decoy-traffic` held) |
 | Stand-in requests that named no route | none |
-| Owned process groups alive at the end | none |
+| Owned process groups alive at the end | none reported by the untyped check, which could not tell EPERM from absence (see the qualification above) |
 | Provider and decoy listeners after stop | both closed |
 
 `native-decoy-traffic` shows that no native run connected to the decoy. It

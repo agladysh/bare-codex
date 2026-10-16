@@ -76,6 +76,8 @@ describe('runCodex with a fake native', () => {
     expect(log?.present['BARE_CODEX_TEST_SECRET']).toBe(true);
     expect(filesContaining(s.out, SECRET_SENTINEL)).toEqual([]);
     expect(result.outcome.custody).toMatchObject({ groupState: 'empty', stdoutDrained: true, stderrDrained: true, writeError: null });
+    expect(result.outcome.custody?.groupObservations[0]?.elapsedMs).toBe(0);
+    expect(result.outcome.custody?.groupObservations.at(-1)?.state).toBe('empty');
     expect(result.nativeVersion?.version).toBe('0.162.1');
   }, SLOW);
 
@@ -158,7 +160,8 @@ describe('runCodex with a fake native', () => {
     const s = setup();
     const controller = new AbortController();
     const result = await runCodex(options(s, 'hang', { signal: controller.signal, onEvent: abortOnCommand(controller) }));
-    expect(result.outcome).toMatchObject({ status: 'stopped', reason: 'stopped-by-abort', stop: { cause: 'abort', nativeSignal: 'SIGINT', escalated: false } });
+    expect(result.outcome).toMatchObject({ status: 'stopped', reason: 'stopped-by-abort', stop: { cause: 'abort', nativeSignal: 'SIGINT', escalated: false, groupState: 'empty' } });
+    expect(result.outcome.stop?.groupObservations.at(-1)?.state).toBe('empty');
     expect(result.outcome.custody?.groupState).toBe('empty');
     expect(readSignals(s.dir)).toContain('SIGINT');
     const grandchild = readGrandchild(s.dir);
@@ -228,6 +231,7 @@ describe('runCodex with a fake native', () => {
     try {
       expect(result.outcome.status).toBe('completed');
       expect(result.outcome.custody?.groupState).toBe('occupied');
+      expect(result.outcome.custody?.groupObservations).toEqual([ { elapsedMs: 0, state: 'occupied' } ]);
       expect(result.outcome.diagnostics.map(diagnostic => diagnostic.code)).toContain('leftover-processes');
       expect(grandchild !== null && isAlive(grandchild)).toBe(true);
     } finally {

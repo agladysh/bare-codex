@@ -1,10 +1,12 @@
 /**
  * The probe's pure parts, kept apart so that `bun test` can check them
  * without native Codex, a sandbox or a listener: the outer sandbox profile,
- * the isolation judgement, and the loopback stand-in for the Responses API.
+ * the isolation judgement, the loopback stand-in for the Responses API, and
+ * what the probe concludes from process-group and pid readings.
  */
 
 import { createHash } from 'node:crypto';
+import type { ProcessGroupReading, ProcessGroupState } from '../src/lifecycle.ts';
 import { isJsonObject, type JsonObject, type JsonValue } from '../src/types.ts';
 
 // ------------------------------------------------------------ outer sandbox
@@ -33,6 +35,88 @@ export function sandboxProfile(root: string, port: number, deniedReads: readonly
     ...deniedReads.map(path => `(deny file-read* (subpath ${JSON.stringify(path)}))`),
     '',
   ].join(String.fromCharCode(10));
+}
+
+// ------------------------------------------------------------ process readings
+
+/** What the probe concludes about one owned process group from its readings. */
+export interface GroupCustody {
+  /** The last state read: after the probe's own SIGKILL when it sent one, else after the run. */
+  state: ProcessGroupState,
+
+  /**
+   * Whether later scenarios are skipped: always, unless the group was shown
+   * `empty`. `occupied` survived the probe's SIGKILL, and `not-permitted`
+   * (EPERM through the whole recheck) shows neither that nothing is left that
+   * could still reach the stand-in nor whose it would be.
+   */
+  stopsLaterRuns: boolean,
+}
+
+/**
+ * The probe's conclusion about one owned group. `afterKill` is the reading
+ * after the probe's own SIGKILL, sent only when `afterRun` read `occupied`.
+ * No reading is turned into another state.
+ */
+export function groupCustody(afterRun: ProcessGroupReading, afterKill: ProcessGroupReading | null): GroupCustody {
+  const state = (afterKill ?? afterRun).state;
+  return { state, stopsLaterRuns: state !== 'empty' };
+}
+
+/** Sends signal 0, which delivers nothing, to one pid. */
+export type SignalZero = (pid: number) => void;
+
+const signalZero: SignalZero = pid => {
+  process.kill(pid, 0);
+};
+
+/**
+ * Whether one pid exists, by signal 0: true when the call succeeds, false on
+ * ESRCH, null on EPERM, which shows neither that the process is running nor
+ * whose it is. Any other error is thrown. Pids with broadcast meanings to
+ * `kill(2)` are refused before anything is sent.
+ */
+export function pidExists(pid: number, send: SignalZero = signalZero): boolean | null {
+  if (!Number.isSafeInteger(pid) || pid <= 1) {
+    throw new Error(`refusing to check pid ${pid}: not a single process this probe could have read`);
+  }
+  try {
+    send(pid);
+    return true;
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? error.code : null;
+    if (code === 'ESRCH') {
+      return false;
+    }
+    if (code === 'EPERM') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** What the `cancel` rule reads once the run has ended. */
+export interface CancelEnd {
+  /** bare-codex's own custody state for native's group. */
+  custodyGroupState: string | null,
+
+  /** The probe's own reading of the same group; null when the probe read none. */
+  probeGroup: ProcessGroupReading | null,
+
+  /** The verified tool process was still running. */
+  toolSurvived: boolean,
+
+  /** Whether an unverified tool pid still exists: false also when there was none, null when EPERM left it unknown. */
+  toolAliveUnverified: boolean | null,
+}
+
+/**
+ * Whether a cancellation run is shown to have left nothing behind: both
+ * readings of native's group are `empty`, the verified tool did not survive,
+ * and no unverified tool pid exists or is of unknown existence.
+ */
+export function cancelLeftNothing(end: CancelEnd): boolean {
+  return end.custodyGroupState === 'empty' && end.probeGroup?.state === 'empty' && !end.toolSurvived && end.toolAliveUnverified === false;
 }
 
 // ------------------------------------------------------------ isolation judgement

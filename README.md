@@ -171,6 +171,12 @@ never reused, and nothing in it is ever deleted.
 If a group still has processes after native exited on its own, they are
 reported (`leftover-processes`), not killed.
 
+The group is read with lifecycle's `readProcessGroup`, and every reading is
+kept (`groupObservations`, in both `stop` and `custody`). A group that signal
+0 answers with EPERM through a 1 s recheck is reported as `not-permitted`
+(`group-not-permitted`). That shows neither that anything is left nor whose
+it is, so it is never counted as empty.
+
 ## Library
 
 ```ts

@@ -84,7 +84,7 @@ describe('conclude', () => {
   });
 
   test('a stop before the terminal event is stopped; a stop after it is only a diagnostic', () => {
-    const stop = { cause: 'SIGTERM', nativeSignal: 'SIGINT', escalated: false, groupState: 'empty' };
+    const stop = { cause: 'SIGTERM', nativeSignal: 'SIGINT', escalated: false, groupState: 'empty', groupObservations: [ { elapsedMs: 0, state: 'empty' } ] };
     expect(conclude({ stream: stream(started), exit: exit1, stop })).toMatchObject({ status: 'stopped', reason: 'stopped-by-SIGTERM', stop });
     const late = conclude({ stream: stream(started, agent('x'), completed), exit: exit0, lastMessage: 'x', stop });
     expect(late.status).toBe('completed');

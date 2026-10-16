@@ -2,6 +2,35 @@
 
 The format follows Keep a Changelog: one section per released version.
 
+## Unreleased
+
+### Fixed
+
+- `probe/native-loopback.ts` read process groups, and an unverified tool pid,
+  with signal-0 helpers of its own that took every error, EPERM included, as
+  absence. It now reads groups with `readProcessGroup` from
+  `@agladysh/bare-claude/lifecycle`, which keeps `not-permitted` apart from
+  `empty` and rechecks it for up to 1 s, and reads a pid as present, absent
+  (ESRCH) or unknown (EPERM). The report keeps every reading (schema
+  `bare-codex.probe/v2`). A group not shown empty stops later scenarios and
+  refuses a preflight, and `cancel` no longer holds while a tool pid's
+  existence is unknown. The corrected probe has not yet been run against
+  native; the 0.1.0 summary in `docs/MEASURED-0.162.1.md` stays qualified
+  until it is.
+- `runCodex` reads the group at custody with `readProcessGroup` too, and
+  `outcome.json` keeps every reading as `groupObservations` in `stop` and
+  `custody`.
+- The `group-not-permitted` diagnostic no longer says the group has members
+  this process may not signal.
+
+### Changed
+
+- `@agladysh/bare-claude` is pinned to commit
+  `0fa4f8a7c4688fa6b82507fe9a53920147a6cfb7` (tag `v0.10.0`), whose
+  `stopClaude` reads its final group state with the same recheck and reports
+  every reading. `readProcessGroup`, `notPermittedRecheckMs` and their types
+  are re-exported from `./lifecycle`.
+
 ## 0.1.0 — 2026-10-16
 
 First implementation, built against the codex 0.162.1 sources (openai/codex
