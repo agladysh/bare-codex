@@ -9,7 +9,7 @@ contract.
 
 1. The code.
 2. The exact Codex sources of the measured version, cited by path and line in
-   `docs/NATIVE-0.162.1.md`.
+   `docs/NATIVE-0.163.0.md`.
 3. A recorded probe report for that version.
 
 Never rely on memory of what a flag used to do. When a doc disagrees with the

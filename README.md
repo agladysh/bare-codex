@@ -9,18 +9,18 @@ headless, with caller-owned auth and inherited configuration.
   outcome). `runCodex` composes them with supervision and complete custody;
   `doctor` checks an invocation without a model call; `bin/bare-codex.ts` is
   the worked CLI.
-- **Built against Codex 0.162.1 sources, with two recorded probe runs.** The
-  native facts come from the exact openai/codex sources of `rust-v0.162.1`
-  (revision `092d3acd`), listed in [docs/NATIVE-0.162.1.md](docs/NATIVE-0.162.1.md).
-  Two runs of the native probe ([docs/PROBE.md](docs/PROBE.md)) against the
-  same stock 0.162.1 binary on macOS are summarised in
-  [docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md): the 0.1.0 run, whose
-  process-group checks could not tell EPERM from absence, and a second run
-  with typed group readings. Questions those runs did not settle stay marked
-  open.
-- **Status: 0.2.0.** A Git source release, not published to any package
-  registry; no consumer adoption is recorded. Bun ≥ 1.3, TypeScript source, no
-  build step.
+- **Measured against Codex 0.163.0.** The native facts come from 22 named
+  files of the openai/codex sources of `rust-v0.163.0` (revision `83086188`),
+  checked against every earlier row in [docs/NATIVE-0.163.0.md](docs/NATIVE-0.163.0.md).
+  One run of the native probe ([docs/PROBE.md](docs/PROBE.md)) against a
+  stock 0.163.0 binary on macOS is summarised in
+  [docs/MEASURED-0.163.0.md](docs/MEASURED-0.163.0.md). The 0.162.1 contract
+  and its two probe runs are kept in [docs/NATIVE-0.162.1.md](docs/NATIVE-0.162.1.md)
+  and [docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md). Questions those runs
+  did not settle stay marked open.
+- **Status: 0.2.1, released 17 October 2026.** A Git
+  source release, not published to any package registry; no consumer adoption
+  is recorded. Bun ≥ 1.3, TypeScript source, no build step.
 
 ## Contracts
 
@@ -39,11 +39,16 @@ There is no account selection, account pool, lease or retry scheduler here.
 Native Codex owns its own retries; bare-codex records what it reports.
 
 **Route-changing variables.** Some variables move native onto another
-credential route, or change where it sends one. At 0.162.1 these are
-`CODEX_API_KEY` (read ahead of any stored login: usage-billed API-key auth),
-`CODEX_ACCESS_TOKEN`, `CODEX_REFRESH_TOKEN_URL_OVERRIDE`,
-`CODEX_REVOKE_TOKEN_URL_OVERRIDE` and `CODEX_APP_SERVER_LOGIN_CLIENT_ID`. The
-contract:
+credential route, or change where it sends one. The ones visible in the
+acquired 0.163.0 sources are `CODEX_API_KEY` (read ahead of any stored
+login: usage-billed API-key auth), `CODEX_ACCESS_TOKEN`,
+`CODEX_REFRESH_TOKEN_URL_OVERRIDE`, `CODEX_REVOKE_TOKEN_URL_OVERRIDE` and
+`CODEX_APP_SERVER_LOGIN_CLIENT_ID`. They are not shown to be the complete
+set. 0.163.0 also has a workload-identity auth route, and the code that
+selects it was not acquired, so whether the environment can select it is
+open ([docs/NATIVE-0.163.0.md](docs/NATIVE-0.163.0.md)). bare-codex neither
+selects nor refuses that route, and makes no auth isolation claim. For the
+variables listed, the contract is:
 
 | The variable is… | Default behaviour |
 |---|---|
@@ -54,7 +59,7 @@ contract:
 
 So an accidental ambient API key never becomes a silent billing fallback, and a
 deliberately supplied one is not banned. `OPENAI_API_KEY` is reported by
-presence: the extracted 0.162.1 sources show no `codex exec` route that reads
+presence: the acquired 0.163.0 sources show no `codex exec` route that reads
 it for model auth, though a configured provider can name it.
 
 **Records.** Run records never contain the environment. They contain the
@@ -78,15 +83,15 @@ from the library.
   skips `$CODEX_HOME/config.toml` and the user and project `.rules` files. It
   does **not** skip project config layers, managed or cloud layers, or
   AGENTS.md discovery, and auth still uses `CODEX_HOME`. It is not hermetic.
-  In both recorded probe runs, an isolated turn still carried the working
-  root's `AGENTS.md`. Neither the user-layer nor the project-layer
+  In every recorded probe run (two on 0.162.1, one on 0.163.0), an isolated
+  turn still carried the working root's `AGENTS.md`. Neither the user-layer nor the project-layer
   `developer_instructions` reached the request. The project's trust entry
   lived in the skipped user config, and the run does not tell those two
   causes apart.
 
 Permissions are never thrown away implicitly:
 
-| `permissions` | Native option | What it means at 0.162.1 |
+| `permissions` | Native option | What it means at 0.163.0 |
 |---|---|---|
 | `inherit` (default) | none | the loaded configuration decides (`default_permissions` or `sandbox_mode`, and approvals). Headless exec asks for approval policy `never` unless the configured reviewer is automatic |
 | `profile: NAME` | `-c default_permissions="NAME"` | a named profile the loaded configuration must define. Not verified natively: in the probe, every run with a named profile configured, inherited or selected this way, failed at thread start before any model request, because native's filesystem sandbox helper cannot start inside the probe's outer sandbox |
@@ -148,14 +153,15 @@ signal-source adapter (`src/lifecycle.ts`):
   written.
 
 An empty process group after a stop does not show that every descendant
-ended. In both recorded probe runs, native 0.162.1 ran its shell tool in a
-process group of its own. Killed by a direct SIGTERM, native left the tool
-running in that separate group while its own group was empty; the probe
-verified the tool and ended it by pid. Stopped through bare-codex (SIGINT
-first), native's group read empty, and in the second run the tool's pid read
-absent (ESRCH) at one moment afterwards; `ps` had already found nothing, so
-that pid was never verified as the tool. That is one tool shape on one binary,
-not evidence about other descendants. bare-codex signals only the group it
+ended. In every recorded probe run (two on 0.162.1, one on 0.163.0), native
+ran its shell tool in a process group of its own. Killed by a direct SIGTERM,
+native left the tool running in that separate group while its own group was
+empty; the probe verified the tool and ended it by pid. Stopped through
+bare-codex (SIGINT first), native's group read empty, and in the typed runs
+(the second 0.162.1 run and the 0.163.0 run) the tool's pid read absent
+(ESRCH) at one moment afterwards; `ps` had already found nothing, so that pid
+was never verified as the tool. That is one tool shape on each binary, not
+evidence about other descendants. bare-codex signals only the group it
 spawned, so it does not reap anything native leaves outside that group.
 
 The CLI exits 128+n for a stop by signal n. The real cause is recorded beside
@@ -258,8 +264,9 @@ strict config and database location, plus an optional synthetic refresh-race
 experiment. It ends with a custody report of owned process groups and
 listeners. Its exit status does not reflect skipped scenarios, the
 cancellation finding or that custody report, so read the report itself. See
-[docs/PROBE.md](docs/PROBE.md). Two recorded runs are summarised in
-[docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md); neither included the
+[docs/PROBE.md](docs/PROBE.md). Two recorded 0.162.1 runs are summarised in
+[docs/MEASURED-0.162.1.md](docs/MEASURED-0.162.1.md) and one 0.163.0 run in
+[docs/MEASURED-0.163.0.md](docs/MEASURED-0.163.0.md); none included the
 refresh-race experiment.
 
 ## Limits
@@ -273,8 +280,11 @@ refresh-race experiment.
 - Named permission profiles are not verified natively: the probe could not
   run them inside its outer sandbox. Legacy `--sandbox` and `--approve-for-me`
   were observed running without an inherited profile's write grant.
-- No managed-auth refresh, real provider call or consumer adoption has been
-  measured.
+- No managed-auth refresh, forced refresh, refresh race or consumer
+  adoption has been measured. The only real provider calls on record are two
+  ordinary managed turns (one fresh, one resumed) made with 0.2.0 on a
+  0.163.0 native before it was measured; they carried
+  `native-version-unmeasured` ([docs/MEASURED-0.163.0.md](docs/MEASURED-0.163.0.md)).
 - macOS and Linux. Process-group supervision is POSIX only.
 
 ## Authorship and licence
@@ -283,4 +293,7 @@ This initial version (library, CLI, tests, probe and documentation) was written
 by Claude Opus 5.5 (Anthropic) and integrated with corrections by Codex (OpenAI),
 both AI agents, from the exact Codex 0.162.1 sources. The 0.2.0 typed-probe repair and release
 documentation were written by Anthropic Claude (AI), integrated with bounded corrections
-and measured by Codex (AI). MIT licensed; see [LICENSE](LICENSE).
+and measured by Codex (AI). The 0.163.0 source qualification, its
+measurement summary and the 0.2.1 version change were written by Claude Opus
+5.5 (Anthropic), an AI agent; the 0.163.0 probe was run by the maintaining
+root agent. MIT licensed; see [LICENSE](LICENSE).

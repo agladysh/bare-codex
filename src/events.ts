@@ -5,7 +5,7 @@
  * understood. Raw bytes are the caller's to keep before any of this runs;
  * `runCodex` writes them to `events.jsonl` first.
  *
- * Vocabulary at 0.162.1 (codex-rs/exec/src/exec_events.rs): top-level
+ * Vocabulary at 0.163.0 (codex-rs/exec/src/exec_events.rs): top-level
  * `thread.started`, `turn.started`, `turn.completed`, `turn.failed`,
  * `item.started`, `item.updated`, `item.completed` and `error`; item types
  * `agent_message`, `reasoning`, `command_execution`, `file_change`,
@@ -15,7 +15,7 @@
  *
  * Meaning, from codex-rs/exec/src/event_processor_with_jsonl_output.rs:
  * - a top-level `error` is emitted for retried stream errors too: JSONL drops
- *   `will_retry` (:447-458; exec/src/lib.rs:1341-1347);
+ *   `will_retry` (:447-458; exec/src/lib.rs:1342-1348);
  * - an interrupted turn emits no terminal event (:559-563);
  * - warnings, config warnings, deprecation notices and model reroutes arrive
  *   as `item.completed` items of type `error` (:427-473, :494-507); they are
@@ -24,12 +24,12 @@
 
 import { isJsonObject, type JsonObject, type JsonValue } from './types.ts';
 
-/** Top-level event types of codex exec 0.162.1 (codex-rs/exec/src/exec_events.rs:11-37). */
+/** Top-level event types of codex exec 0.163.0 (codex-rs/exec/src/exec_events.rs:11-37). */
 export const KNOWN_EVENT_TYPES: readonly string[] = [
   'thread.started', 'turn.started', 'turn.completed', 'turn.failed', 'item.started', 'item.updated', 'item.completed', 'error',
 ];
 
-/** Item types of codex exec 0.162.1 (codex-rs/exec/src/exec_events.rs:105-133). */
+/** Item types of codex exec 0.163.0 (codex-rs/exec/src/exec_events.rs:105-133). */
 export const KNOWN_ITEM_TYPES: readonly string[] = [
   'agent_message', 'reasoning', 'command_execution', 'file_change', 'mcp_tool_call', 'collab_tool_call', 'web_search', 'todo_list', 'error',
 ];

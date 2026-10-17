@@ -22,7 +22,7 @@ export type ConfigPolicy =
    * `--ignore-user-config --ignore-rules`: `$CODEX_HOME/config.toml` and the
    * user and project `.rules` files are not loaded. Project config layers,
    * managed and cloud layers and AGENTS.md discovery still apply, and auth
-   * still uses `CODEX_HOME` (codex-rs/exec/src/cli.rs:44-50 at 0.162.1).
+   * still uses `CODEX_HOME` (codex-rs/exec/src/cli.rs:44-50 at 0.163.0).
    * This is not a hermetic run.
    */
   | { kind: 'isolated' };

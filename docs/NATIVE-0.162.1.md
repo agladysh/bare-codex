@@ -1,5 +1,8 @@
 # Native contract of codex 0.162.1
 
+From 0.2.1, bare-codex is measured against 0.163.0
+([NATIVE-0.163.0.md](NATIVE-0.163.0.md)); this record is kept as it was.
+
 The facts bare-codex 0.2.0 encodes. Each is from the openai/codex sources of
 `rust-v0.162.1`, revision `092d3acd`, by path and line. Where the extracted
 sources do not settle a question, it is marked **open**, and the native probe

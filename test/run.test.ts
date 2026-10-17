@@ -78,7 +78,7 @@ describe('runCodex with a fake native', () => {
     expect(result.outcome.custody).toMatchObject({ groupState: 'empty', stdoutDrained: true, stderrDrained: true, writeError: null });
     expect(result.outcome.custody?.groupObservations[0]?.elapsedMs).toBe(0);
     expect(result.outcome.custody?.groupObservations.at(-1)?.state).toBe('empty');
-    expect(result.nativeVersion?.version).toBe('0.162.1');
+    expect(result.nativeVersion?.version).toBe('0.163.0');
   }, SLOW);
 
   test('an inherited CODEX_API_KEY is refused before anything is spawned', async () => {

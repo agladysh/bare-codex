@@ -12,16 +12,20 @@
 import type { EnvPolicy, HomePolicy, Refusal } from './types.ts';
 
 /**
- * Variables that change which credential native Codex 0.162.1 uses, or where
- * it sends one (openai/codex 092d3acd, codex-rs/login/src/auth/manager.rs):
+ * The variables visible in the acquired sources of native Codex 0.163.0 that
+ * change which credential it uses, or where it sends one (openai/codex
+ * 83086188, codex-rs/login/src/auth/manager.rs). This is not shown to be the
+ * complete set: a workload-identity route is selected by code that was not
+ * acquired (manager.rs:2785-2808; exec/src/lib.rs:656-661).
  * - `CODEX_API_KEY` is used ahead of any stored login when the caller enables
  *   it, which `codex exec` does: usage-billed API-key auth (manager.rs:1500-1506,
  *   exec/src/lib.rs:745);
- * - `CODEX_ACCESS_TOKEN` is used ahead of the stored login, as an access token
- *   or personal access token (manager.rs:1537-1545);
- * - `CODEX_REFRESH_TOKEN_URL_OVERRIDE` and `CODEX_REVOKE_TOKEN_URL_OVERRIDE`
- *   say where refresh tokens and revoke requests are sent (manager.rs:212-215,
- *   1727-1730);
+ * - `CODEX_ACCESS_TOKEN` is used ahead of the stored login, as an access token,
+ *   a personal access token or an agent-identity JWT (manager.rs:1537-1559);
+ * - `CODEX_REFRESH_TOKEN_URL_OVERRIDE` says where refresh tokens are sent
+ *   (manager.rs:214, 1727-1730); `CODEX_REVOKE_TOKEN_URL_OVERRIDE` names where
+ *   revoke requests go, and is declared at manager.rs:215, but where it is
+ *   read is not in the acquired sources;
  * - `CODEX_APP_SERVER_LOGIN_CLIENT_ID` says which OAuth client a refresh
  *   claims to be (manager.rs:216, 1720-1725).
  */
@@ -37,7 +41,7 @@ export type RouteChangingVariable = typeof ROUTE_CHANGING_VARIABLES[number];
 
 /**
  * Variables whose presence a record states. `OPENAI_API_KEY` is listed for
- * presence only: the extracted 0.162.1 sources show no `codex exec` route that
+ * presence only: the acquired 0.163.0 sources show no `codex exec` route that
  * reads it for model auth, but a configured provider can name it as its
  * `env_key`.
  */
@@ -97,11 +101,11 @@ export interface ComposedEnv {
 const nul = String.fromCharCode(0);
 
 const ambientReasons: Record<RouteChangingVariable, string> = {
-  CODEX_API_KEY: 'codex exec 0.162.1 uses it ahead of any stored login, as usage-billed API-key auth',
-  CODEX_ACCESS_TOKEN: 'codex 0.162.1 uses it ahead of the stored login, as an access token',
-  CODEX_REFRESH_TOKEN_URL_OVERRIDE: 'codex 0.162.1 sends refresh tokens to the URL it names',
-  CODEX_REVOKE_TOKEN_URL_OVERRIDE: 'codex 0.162.1 sends revoke requests to the URL it names',
-  CODEX_APP_SERVER_LOGIN_CLIENT_ID: 'codex 0.162.1 claims to be that OAuth client when it refreshes',
+  CODEX_API_KEY: 'codex exec 0.163.0 uses it ahead of any stored login, as usage-billed API-key auth',
+  CODEX_ACCESS_TOKEN: 'codex 0.163.0 uses it ahead of the stored login, as an access token',
+  CODEX_REFRESH_TOKEN_URL_OVERRIDE: 'codex 0.163.0 sends refresh tokens to the URL it names',
+  CODEX_REVOKE_TOKEN_URL_OVERRIDE: 'codex 0.163.0 sends revoke requests to the URL it names',
+  CODEX_APP_SERVER_LOGIN_CLIENT_ID: 'codex 0.163.0 claims to be that OAuth client when it refreshes',
 };
 
 function isRouteChanging(name: string): name is RouteChangingVariable {

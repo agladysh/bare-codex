@@ -5,8 +5,8 @@
  * network access, so a consumer that keeps its own supervisor, stdin carrier
  * and ledger can use it alone.
  *
- * Native facts are from openai/codex revision 092d3acd (rust-v0.162.1);
- * docs/NATIVE-0.162.1.md lists each with its source.
+ * Native facts are from openai/codex revision 83086188 (rust-v0.163.0);
+ * docs/NATIVE-0.163.0.md lists each with its source.
  */
 
 import { createHash } from 'node:crypto';
@@ -25,10 +25,10 @@ import type {
 } from './types.ts';
 
 /** The native version every native fact here was taken from, and the one the probe is built to measure. */
-export const MEASURED_NATIVE_VERSION = '0.162.1';
+export const MEASURED_NATIVE_VERSION = '0.163.0';
 
 /** The openai/codex revision of {@link MEASURED_NATIVE_VERSION}. */
-export const NATIVE_SOURCE_REVISION = '092d3acd';
+export const NATIVE_SOURCE_REVISION = '83086188';
 
 /** One `-c key=value` override. `value` is a TOML literal, passed as is. */
 export interface ConfigOverride {
@@ -223,7 +223,7 @@ function permissionNote(permissions: PermissionsPolicy): string {
     case 'profile':
       return `default_permissions="${permissions.name}" selects that named profile for this run as a config override; the loaded configuration must define it`;
     case 'sandbox':
-      return `legacy --sandbox ${permissions.mode} for this run (exec/src/lib.rs:343-347); whether it replaces an inherited default_permissions profile, and with it that profile's grants, is not established from the extracted 0.162.1 source (open until the native probe records it)`;
+      return `legacy --sandbox ${permissions.mode} for this run (exec/src/lib.rs:343-347); whether it replaces an inherited default_permissions profile, and with it that profile's grants, is not established from the acquired 0.163.0 sources (open until the native probe records it)`;
     case 'approve-for-me':
       return '--approve-for-me adds approvals_reviewer="auto_review", approval_policy="on-request" and sandbox_mode="workspace-write" as config overrides for this run (utils/cli/src/shared_options.rs:80-93); whether that sandbox_mode replaces an inherited default_permissions profile, and with it that profile\'s grants, is open until the native probe records it';
     case 'bypass':
@@ -247,7 +247,7 @@ function sessionNote(session: SessionPolicy): string | null {
     case 'new':
       return null;
     case 'resume':
-      return `resume ${session.threadId}: native resumes the thread by id from the home it runs with, without checking the thread's recorded working directory (exec/src/lib.rs:1918-1923)`;
+      return `resume ${session.threadId}: native resumes the thread by id from the home it runs with, without checking the thread's recorded working directory (exec/src/lib.rs:1920-1925)`;
     case 'fork':
       return `fork ${session.threadId}: native finds the source thread in the home it runs with, across working directories, and continues in a new thread (exec/src/lib.rs:1066-1077)`;
   }
@@ -275,12 +275,12 @@ function configNote(config: ConfigPolicy): PlanNote {
 }
 
 /**
- * Plans one `codex exec` invocation. Option order follows the 0.162.1
+ * Plans one `codex exec` invocation. Option order follows the 0.163.0
  * parser: every exec option comes before a `resume` or `fork` subcommand
  * (`--sandbox`, `--cd`, `--add-dir` and `--image` are not global,
  * exec/src/cli.rs:163-170), images come first so the always-present `--json`
  * ends their multi-value list, and the prompt is always `-` on stdin
- * (exec/src/lib.rs:2368-2396). The result carries refusals instead of
+ * (exec/src/lib.rs:2371-2399). The result carries refusals instead of
  * throwing; a plan with refusals must not be run.
  */
 export function planInvocation(options: PlanOptions): InvocationPlan {
@@ -297,9 +297,9 @@ export function planInvocation(options: PlanOptions): InvocationPlan {
   const stdin = typeof options.prompt === 'string' ? new TextEncoder().encode(options.prompt) : options.prompt;
   const promptText = decodeUtf8(stdin);
   if (promptText === null) {
-    refuse('prompt-not-utf8', 'the prompt is not valid UTF-8; bare-codex delivers UTF-8 on stdin, which codex exec 0.162.1 decodes as such (exec/src/lib.rs:2265-2293)');
+    refuse('prompt-not-utf8', 'the prompt is not valid UTF-8; bare-codex delivers UTF-8 on stdin, which codex exec 0.163.0 decodes as such (exec/src/lib.rs:2268-2296)');
   } else if ((promptText.startsWith(byteOrderMark) ? promptText.slice(1) : promptText).trim() === '') {
-    refuse('prompt-empty', 'the prompt is empty; codex exec 0.162.1 exits 1 with "No prompt provided via stdin." (exec/src/lib.rs:2346-2352)');
+    refuse('prompt-empty', 'the prompt is empty; codex exec 0.163.0 exits 1 with "No prompt provided via stdin." (exec/src/lib.rs:2349-2356)');
   }
 
   const requireAbsolute = (label: string, path: string) => {
@@ -315,7 +315,7 @@ export function planInvocation(options: PlanOptions): InvocationPlan {
   for (const image of options.images ?? []) {
     requireAbsolute('an images entry', image);
     if (image.includes(',')) {
-      refuse('option-invalid', `image path ${JSON.stringify(image)} contains a comma, which codex 0.162.1 splits into separate images (utils/cli/src/shared_options.rs:11-19)`);
+      refuse('option-invalid', `image path ${JSON.stringify(image)} contains a comma, which codex 0.163.0 splits into separate images (utils/cli/src/shared_options.rs:11-19)`);
     }
   }
   if (options.outputSchemaFile !== undefined) {
@@ -326,7 +326,7 @@ export function planInvocation(options: PlanOptions): InvocationPlan {
   }
 
   if (session.kind !== 'new' && !uuidPattern.test(session.threadId)) {
-    refuse('thread-id-invalid', `${session.kind} needs a thread id in UUID form, got ${JSON.stringify(session.threadId)}; names and --last are not used, because native resolves them by searching session history (exec/src/lib.rs:1851-1989)`);
+    refuse('thread-id-invalid', `${session.kind} needs a thread id in UUID form, got ${JSON.stringify(session.threadId)}; names and --last are not used, because native resolves them by searching session history (exec/src/lib.rs:1852-1992)`);
   }
   const model = options.model;
   if (model !== undefined && (model === '' || model.startsWith('-') || hasControlCharacter(model))) {

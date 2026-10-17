@@ -51,7 +51,7 @@ function noteSignal(name: string): void {
 }
 
 if (args[0] === '--version') {
-  writeSync(1, `codex-cli 0.162.1${LF}`);
+  writeSync(1, `codex-cli 0.163.0${LF}`);
   process.exit(0);
 }
 if (args.includes('--help')) {

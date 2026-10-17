@@ -72,7 +72,7 @@ Tool-free scenarios use `--sandbox read-only`. The cancellation scenarios use
 `danger-full-access`, contained by the outer sandbox. Nothing here claims to
 reproduce a caller's own inherited context.
 
-Both recorded runs showed a further limit of this design. With a named
+Every recorded run (two on 0.162.1, one on 0.163.0) showed a further limit of this design. With a named
 permission profile configured, native reads `AGENTS.md` at thread start
 through its own filesystem sandbox helper, and that helper cannot start
 inside the outer sandbox. The P3 profile runs therefore fail before any model
@@ -108,7 +108,7 @@ finding.
 
 The stand-in answers by route (`/s/<home>/v1/responses`), so every request is
 attributed to the home that sent it. It reads the request's own tool schema to
-shape a shell call rather than presume the 0.162.1 tool set. Authorization
+shape a shell call rather than presume a fixed tool set. Authorization
 headers are recorded as fingerprints only.
 
 ## Custody report
@@ -179,9 +179,14 @@ and compare its findings with the previous report.
 
 ## Recorded runs
 
-Two runs are summarised in [MEASURED-0.162.1.md](MEASURED-0.162.1.md): the
+Two runs against 0.162.1 are summarised in [MEASURED-0.162.1.md](MEASURED-0.162.1.md): the
 0.1.0 run, of schema `bare-codex.probe/v1`, and a second run of schema
-`bare-codex.probe/v2` from commit `264b15b`. Each summary is a selection of
-facts from its report, not the report itself. The exact reports, with their
+`bare-codex.probe/v2` from commit `264b15b`. One run against 0.163.0, of
+schema `bare-codex.probe/v2` from the code of commit `9d3a607`, is
+summarised in [MEASURED-0.163.0.md](MEASURED-0.163.0.md). It was made with
+`--allow-version-drift` while the measured version was still 0.162.1, so its
+report names `0.162.1` and `092d3acd` as `measuredVersion` and
+`sourceRevision`. Each summary is a selection of facts from its report, not
+the report itself. The exact reports, with their
 paths, thread ids and denied home paths, are kept privately by whoever ran
 the probe.

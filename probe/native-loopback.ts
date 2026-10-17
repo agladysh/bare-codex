@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Native loopback probe for bare-codex: what does an installed, stock `codex`
- * (measured version 0.162.1) actually do with the invocations bare-codex
+ * (the measured version, `MEASURED_NATIVE_VERSION`) actually do with the invocations bare-codex
  * plans? Answered with synthetic homes only, no credentials and no model
  * provider: a loopback stand-in answers the Responses API, and every native
  * run happens inside an outer macOS sandbox that paired controls show to

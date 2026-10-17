@@ -2,6 +2,49 @@
 
 The format follows Keep a Changelog: one section per released version.
 
+## 0.2.1 — 2026-10-17
+
+Measured against codex 0.163.0. The runtime's behaviour is unchanged apart
+from which native version counts as measured.
+
+### Changed
+
+- `MEASURED_NATIVE_VERSION` is `0.163.0` and `NATIVE_SOURCE_REVISION` is
+  `83086188` (openai/codex `rust-v0.163.0`). A 0.163.0 binary no longer draws
+  `native-version-unmeasured`, and `doctor` reports its version `ok`. A
+  0.162.1 binary now draws the diagnostic. The probe no longer needs
+  `--allow-version-drift` for 0.163.0.
+- The source qualification is `docs/NATIVE-0.163.0.md`, with the record
+  `docs/QUALIFICATION-0.163.0.md`. Every row of `docs/NATIVE-0.162.1.md` was
+  checked against 22 named 0.163.0 source files: 36 hold at the cited lines,
+  11 hold with moved lines, none is contradicted, and 3 stay open.
+- One probe run against a stock 0.163.0 binary is summarised in
+  `docs/MEASURED-0.163.0.md`. It was made from the code of commit `9d3a607`
+  with `--allow-version-drift`, and its report is kept as recorded, still
+  naming `0.162.1` and `092d3acd`. Every finding with a pass rule held, every
+  observed finding matched the 0.162.1 runs, and named permission profiles
+  remain unverified.
+- Source citations in comments, refusal messages, plan notes and outcome
+  details name 0.163.0 and its lines. The shape-anomaly, unknown-event and
+  unknown-item diagnostics name the measured version from the constant.
+- The test stand-in for native reports `codex-cli 0.163.0`. A `conclude`
+  test pins the version semantics: the measured version draws no
+  `native-version-unmeasured`, and 0.162.1 draws it.
+- The route-changing variables are described, in the README and `src/env.ts`,
+  as those visible in the acquired 0.163.0 sources and not as a complete
+  set. 0.163.0 also has a workload-identity auth route, whose selector was
+  not acquired; it is recorded as open in `docs/NATIVE-0.163.0.md`. The list
+  itself and its behaviour are unchanged.
+
+### Kept
+
+- `docs/NATIVE-0.162.1.md`, with a pointer to the 0.163.0 record added at
+  its head and otherwise as it was; `docs/MEASURED-0.162.1.md` and the 0.162.1
+  reports, as they were.
+- Two ordinary managed turns made with 0.2.0 on a 0.163.0 native, before it
+  was measured, keep their `native-version-unmeasured` record. They are
+  described apart from the probe run in `docs/MEASURED-0.163.0.md`.
+
 ## 0.2.0 — 2026-10-16
 
 Typed process-group readings in the runtime and the probe, with a second

@@ -20,7 +20,7 @@ import { initialStreamState, type StreamState, type Usage } from './events.ts';
 import { MEASURED_NATIVE_VERSION } from './plan.ts';
 import type { ExecutableClass, Refusal, SessionPolicy } from './types.ts';
 
-/** The refresh-failure messages of codex 0.162.1, verbatim (codex-rs/login/src/auth/manager.rs:206-211). Matched whole. */
+/** The refresh-failure messages of codex 0.163.0, verbatim (codex-rs/login/src/auth/manager.rs:206-211). Matched whole. */
 export const AUTH_FAILURE_MESSAGES = {
   'refresh-token-expired': 'Your access token could not be refreshed because your refresh token has expired. Please log out and sign in again.',
   'refresh-token-reused': 'Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.',
@@ -35,16 +35,16 @@ const authFailures: readonly AuthFailure[] = [ 'refresh-token-expired', 'refresh
 
 export type NativeFailureClass = 'config' | 'config-override' | 'rules' | 'untrusted-directory' | 'prompt' | 'output-schema' | 'home';
 
-/** Lines codex exec 0.162.1 writes to stderr before exiting 1, by prefix (sources in codex-rs/exec/src/lib.rs). */
+/** Lines codex exec 0.163.0 writes to stderr before exiting 1, by prefix (sources in codex-rs/exec/src/lib.rs). */
 export const NATIVE_STDERR_FAILURES: readonly { prefix: string, class: NativeFailureClass, source: string }[] = [
   { prefix: 'Error loading config.toml', class: 'config', source: 'exec/src/lib.rs:836-849' },
   { prefix: 'Error parsing -c overrides', class: 'config-override', source: 'exec/src/lib.rs:350-357' },
   { prefix: 'Error loading rules:', class: 'rules', source: 'exec/src/lib.rs:643-652' },
   { prefix: 'Not inside a trusted directory and --skip-git-repo-check was not specified.', class: 'untrusted-directory', source: 'exec/src/lib.rs:1013-1019' },
-  { prefix: 'No prompt provided via stdin.', class: 'prompt', source: 'exec/src/lib.rs:2346-2352' },
-  { prefix: 'Failed to read prompt from stdin', class: 'prompt', source: 'exec/src/lib.rs:2333-2343' },
-  { prefix: 'Failed to read output schema file', class: 'output-schema', source: 'exec/src/lib.rs:2216-2224' },
-  { prefix: 'Output schema file ', class: 'output-schema', source: 'exec/src/lib.rs:2227-2234' },
+  { prefix: 'No prompt provided via stdin.', class: 'prompt', source: 'exec/src/lib.rs:2349-2356' },
+  { prefix: 'Failed to read prompt from stdin', class: 'prompt', source: 'exec/src/lib.rs:2335-2347' },
+  { prefix: 'Failed to read output schema file', class: 'output-schema', source: 'exec/src/lib.rs:2216-2228' },
+  { prefix: 'Output schema file ', class: 'output-schema', source: 'exec/src/lib.rs:2230-2239' },
   { prefix: 'Error finding codex home', class: 'home', source: 'exec/src/lib.rs:369-375' },
 ];
 
@@ -270,15 +270,15 @@ function streamDiagnostics(stream: StreamState, session: SessionPolicy): Diagnos
     out.push({ code: 'malformed-lines', detail: `${stream.malformed} line(s) were not JSON events; the raw bytes are in events.jsonl` });
   }
   if (stream.shapeAnomalies > 0) {
-    out.push({ code: 'shape-anomalies', detail: `${stream.shapeAnomalies} known event(s) lacked fields 0.162.1 always sends: possible protocol drift` });
+    out.push({ code: 'shape-anomalies', detail: `${stream.shapeAnomalies} known event(s) lacked fields ${MEASURED_NATIVE_VERSION} always sends: possible protocol drift` });
   }
   const unknownEvents = Object.keys(stream.unknownEventTypes);
   if (unknownEvents.length > 0) {
-    out.push({ code: 'unknown-event-types', detail: `event types not in the 0.162.1 vocabulary: ${unknownEvents.join(', ')}` });
+    out.push({ code: 'unknown-event-types', detail: `event types not in the ${MEASURED_NATIVE_VERSION} vocabulary: ${unknownEvents.join(', ')}` });
   }
   const unknownItems = Object.keys(stream.unknownItemTypes);
   if (unknownItems.length > 0) {
-    out.push({ code: 'unknown-item-types', detail: `item types not in the 0.162.1 vocabulary: ${unknownItems.join(', ')}` });
+    out.push({ code: 'unknown-item-types', detail: `item types not in the ${MEASURED_NATIVE_VERSION} vocabulary: ${unknownItems.join(', ')}` });
   }
   if (stream.tornTail !== null) {
     out.push({ code: 'torn-tail', detail: `the stream ended with ${stream.tornTail.bytes} byte(s) after the last newline${stream.tornTail.parses ? ` (parseable as ${stream.tornTail.type ?? 'an event'}, not counted)` : ''}` });
@@ -308,7 +308,7 @@ function finalMessageFacts(lastMessage: string | null, stream: StreamState, comp
     diagnostics.push({ code: 'empty-last-message', detail: 'native wrote an empty final message: it had no agent message for this turn (exec/src/event_processor.rs:31-40)' });
   }
   if (matchesStream === false) {
-    diagnostics.push({ code: 'final-message-differs-from-stream', detail: 'the last-message file differs from the last streamed agent_message; native may take the final message from a backfilled thread read, a plan item, or after dropped item events (exec/src/lib.rs:1735-1789; event_processor_with_jsonl_output.rs:387-401, 513-537)' });
+    diagnostics.push({ code: 'final-message-differs-from-stream', detail: 'the last-message file differs from the last streamed agent_message; native may take the final message from a backfilled thread read, a plan item, or after dropped item events (exec/src/lib.rs:1736-1801; event_processor_with_jsonl_output.rs:387-401, 513-537)' });
   }
   if (completedTurn && lastMessage !== null && lastMessage !== '' && streamed === null) {
     diagnostics.push({ code: 'final-message-without-streamed-agent-message', detail: 'native wrote a final message that no streamed agent_message carried (backfill or plan item)' });
@@ -406,7 +406,7 @@ export function conclude(input: ConcludeInput): CodexOutcome {
       reason = 'error-with-completed-turn';
       const last = stream.errors.at(-1);
       failure = failureFacts(last === undefined ? 'exit' : 'error', last?.message ?? `native exited ${exit.code} after turn.completed`, stderrLines);
-      detail = `native reported turn.completed but exited ${exit.code}: it judged the run failed (an error it did not recover from, or a server request exec could not serve; exec/src/lib.rs:1301-1404, 2070-2211)`;
+      detail = `native reported turn.completed but exited ${exit.code}: it judged the run failed (an error it did not recover from, or a server request exec could not serve; exec/src/lib.rs:1299-1405, 2073-2214)`;
     } else {
       status = 'unknown';
       reason = 'signal-after-completed-turn';

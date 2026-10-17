@@ -313,7 +313,7 @@ function isJsonValue(value: unknown): value is JsonValue {
   return value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' || Array.isArray(value) || isJsonObject(value);
 }
 
-/** Server-sent events in the framing the 0.162.1 parser reads (codex-api/src/sse/responses.rs:702-714). */
+/** Server-sent events in the framing the 0.163.0 parser reads (codex-api/src/sse/responses.rs:722-734). */
 export function sse(events: readonly JsonObject[]): string {
   const lf = String.fromCharCode(10);
   return events.map(event => `event: ${String(event['type'])}${lf}data: ${JSON.stringify(event)}${lf}${lf}`).join('');
@@ -321,7 +321,7 @@ export function sse(events: readonly JsonObject[]): string {
 
 const usage = { input_tokens: 10, input_tokens_details: { cached_tokens: 0 }, output_tokens: 2, output_tokens_details: { reasoning_tokens: 0 }, total_tokens: 12 };
 
-/** One assistant message, then `response.completed` with usage (responses.rs:353-360, 418-463). */
+/** One assistant message, then `response.completed` with usage (responses.rs:354-361, 419-480). */
 export function textEvents(id: string, text: string): JsonObject[] {
   return [
     { type: 'response.created', response: { id } },
@@ -390,7 +390,7 @@ export function toolsOf(body: JsonValue | null): ToolShape[] {
 
 /**
  * A call to whichever shell tool the request offers, shaped by that tool's
- * own parameter schema, so the stand-in does not presume 0.162.1's tool set.
+ * own parameter schema, so the stand-in does not presume a fixed tool set.
  */
 export function chooseShellCall(body: JsonValue | null, script: string): ShellCall | null {
   const tools = toolsOf(body);

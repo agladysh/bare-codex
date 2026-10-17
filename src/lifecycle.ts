@@ -3,9 +3,9 @@
  * (`@agladysh/bare-claude/lifecycle`, pinned by commit in package.json) rather
  * than a copy of it.
  *
- * Why an adapter: `codex exec` 0.162.1 turns only SIGINT into a native turn
+ * Why an adapter: `codex exec` 0.163.0 turns only SIGINT into a native turn
  * interruption. It waits for `tokio::signal::ctrl_c()` once and then sends
- * `turn/interrupt` (codex-rs/exec/src/lib.rs:1190-1196, 1305-1327); SIGTERM
+ * `turn/interrupt` (codex-rs/exec/src/lib.rs:1190-1196, 1305-1328); SIGTERM
  * and SIGHUP keep their default action and end the process without one. A
  * second SIGINT is absorbed by the same handler, so escalation has to be
  * SIGKILL, which is what lifecycle's escalation sends.

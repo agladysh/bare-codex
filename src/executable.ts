@@ -201,7 +201,7 @@ export async function runBounded(command: readonly string[], env: Readonly<Recor
  * `--version`. A managed launcher may hand `--version` to native as is.
  * Native's CLI parses its arguments before loading any configuration
  * (codex-rs/cli/src/main.rs:1045-1051), but the arg0 dispatch that runs
- * before that is not in the extracted 0.162.1 sources, so that `--version`
+ * before that is not in the acquired 0.163.0 sources, so that `--version`
  * reads no home is not established here.
  */
 export async function probeVersion(command: readonly string[], env: Readonly<Record<string, string>>, timeoutMs = 15_000): Promise<VersionFacts> {

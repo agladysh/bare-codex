@@ -110,6 +110,12 @@ describe('conclude', () => {
     expect(outcome.diagnostics.map(diagnostic => diagnostic.code)).toContain('native-version-unmeasured');
   });
 
+  test('0.163.0 is the measured version, and the earlier 0.162.1 is not', () => {
+    const codes = (nativeVersion: string) => conclude({ stream: stream(started, completed), exit: exit0, lastMessage: '', nativeVersion }).diagnostics.map(diagnostic => diagnostic.code);
+    expect(codes('0.163.0')).not.toContain('native-version-unmeasured');
+    expect(codes('0.162.1')).toContain('native-version-unmeasured');
+  });
+
   test('an end by a signal bare-codex did not send is unknown', () => {
     expect(conclude({ stream: stream(started), exit: { code: null, signal: 'SIGKILL' } })).toMatchObject({ status: 'unknown', reason: 'killed-by-signal' });
   });
