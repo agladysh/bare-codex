@@ -3,6 +3,11 @@
 There are three ways to adopt bare-codex. Each keeps a different share of the
 work with the consumer.
 
+bare-codex is supported and tested on Bun ≥ 1.3 only. Install it as a Git
+dependency pinned to a release tag or its commit (see
+[Pinning and upgrading](#pinning-and-upgrading)):
+`"@agladysh/bare-codex": "github:agladysh/bare-codex#v0.2.1"`.
+
 ## 1. The CLI
 
 For scripts and runners. Every run gets a new output directory, and the exit
@@ -45,12 +50,15 @@ signal policy. bare-codex replaces only the native-specific parts:
 | Your part | bare-codex part |
 |---|---|
 | argv and environment composition | `planInvocation(options)`: `command`, `args`, `env`, `stdin`, `refusals`, `notes`; `planRecord(plan)` for your ledger |
-| stream observer | `parseLine` and `reduceParsed`, or `reduceLine`, over raw stdout lines (`JsonlSplitter` if you have chunks) |
-| conclusion | `conclude({ stream, exit, stderrTail, lastMessage, session, stop, executableClass })`; pass the class so a launcher's or wrapper's refusal is not blamed on native |
+| stream observer | `parseLine` and `reduceParsed`, or `reduceLine`, over raw stdout lines (`JsonlSplitter` if you have chunks, then `finishStream(state, splitter.end())` so a torn last line is reported) |
+| conclusion | `conclude({ stream, exit, stderrTail, lastMessage, session, stop, executableClass, nativeVersion })`; pass the class so a launcher's or wrapper's refusal is not blamed on native, and the native version if you want the version diagnostic. A `stop` you build needs `groupObservations` (`[]` if you keep no readings) |
 | stop | send SIGINT to native first (`NATIVE_INTERRUPT_SIGNAL`); the `superviseCodex` adapter does this on bare-claude's lifecycle |
 
 What you keep: your stdin carrier (deliver `plan.stdin` byte for byte), your
-raw-output custody, your gates and ledger, and your account choice.
+raw-output custody, your gates and ledger, and your account choice. So do the
+guarantees that `runCodex` gives on top of the pure layers: not spawning a
+plan whose `refusals` is non-empty, writing raw bytes before parsing,
+spawning native as the leader of its own process group, and stopping it.
 
 To replace the executable with a gate shim, keep `plan.args` and spawn
 `[shim, ...plan.args]`. Pass the real executable's class as
@@ -70,18 +78,39 @@ Behaviour that changes when migrating from a hand-written adapter:
 
 A consumer's own outcome classes (account refusal, usage limits, its retry
 policy) stay its own. Map them from `CodexOutcome.status`, `reason` and
-`failure`; do not parse model text. bare-codex's `launcher-refused` (an
-account-switching launcher's `codex: ` line, no events, any non-zero exit)
-and `wrapper-error` (the same from another non-native executable) are close
-to, but not defined by, any consumer's own refusal class: compare before
-mapping one onto the other.
+`failure`; do not parse model text. `failure.auth` and `failure.native` are
+set only for exact native strings. A non-zero exit with no terminal event, no
+`error` event and no recognised stderr line is `failed` with reason
+`exit-without-turn` and the last stderr line as `failure.message`.
+bare-codex's `launcher-refused` (an account-switching launcher's `codex: `
+line, no events, any non-zero exit) and `wrapper-error` (the same from
+another non-native executable) are close to, but not defined by, any
+consumer's own refusal class: compare before mapping one onto the other.
 
-## Receiving releases
+## Pinning and upgrading
 
-Depend on a commit:
-`"@agladysh/bare-codex": "github:agladysh/bare-codex#<sha>"`. Read
-`CHANGELOG.md` before moving the pin. When the installed Codex version
-changes, every outcome carries a `native-version-unmeasured` diagnostic until
-the probe has been run again and a release records the new measurement. A
-consumer that runs the probe itself for drift is consuming the probe, which
-is a different thing from adopting the run layer.
+Pin a release tag (`#v0.2.1`, for example) or the commit it points to.
+Before moving the pin, read the release's section in
+[CHANGELOG.md](../CHANGELOG.md); it starts with what changes for a consumer
+and what, if anything, to do.
+
+Codex and bare-codex are upgraded separately. bare-codex does not refuse a
+Codex version other than `MEASURED_NATIVE_VERSION`, but with one the outcome
+of every run that spawned native and read its version carries a
+`native-version-unmeasured` diagnostic, and `doctor` warns, until a
+bare-codex release covers that version. Nothing else changes (see
+[Codex versions](../README.md#codex-versions) in the README). If you alert on
+diagnostics, expect this one after every Codex upgrade, and after a
+bare-codex upgrade that moves the version while your Codex stays behind.
+
+Some changes in a new Codex version show elsewhere: watch
+`unknown-event-types`, `unknown-item-types`, `shape-anomalies` and
+`malformed-lines` in outcomes, and run `bare-codex doctor`, whose `help` check
+fails if the text of `exec --help` does not mention an option the plan
+passes. Their silence does not show that nothing changed: they see option
+names and the event stream's vocabulary and shape, not meaning. For a
+deeper check before a release covers the version, the native probe
+([PROBE.md](PROBE.md)) runs the installed binary through bare-codex's
+scenarios against a loopback stand-in. It needs macOS, a shell that is not
+itself sandboxed and a stock native binary, uses no credentials, and probes a
+version other than the measured one only with `--allow-version-drift`.

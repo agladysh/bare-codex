@@ -82,12 +82,13 @@ The cancellation and cleanup readings are bounded in the same way as for
 `danger-full-access` mode. Native runs its tool in a separate group, so
 native's empty group says nothing about the tool.
 
-## Two ordinary managed turns, before this measurement
+## Two ordinary turns against the real service, before this measurement
 
 Separately, and before this probe run, bare-codex **0.2.0** (commit
-`9d3a607`) ran two ordinary turns through an existing managed subscription
-route on a native that reported 0.163.0. The configuration and permissions
-were inherited, and no account selection or login was changed. `doctor`
+`9d3a607`) ran two ordinary turns against the real service, with an existing
+subscription login, on a native that reported 0.163.0. The configuration and
+permissions were inherited, and no account selection or login was changed.
+`doctor`
 and `exec --help` passed first. One turn was fresh and one resumed the same
 thread; each completed with exit 0, showed only `agent_message` items, and
 carried `native-version-unmeasured`, because 0.2.0 was measured against
@@ -120,4 +121,5 @@ as bare-codex's measured version.
 ## Authorship
 
 Written by Claude Opus 5.5 (Anthropic), an AI agent, from the run's report
-and the acquired sources. The probe was run by the maintaining root agent.
+and the acquired sources. The probe was run by Codex (OpenAI), the AI agent
+that maintains this repository.

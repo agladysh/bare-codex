@@ -1,5 +1,12 @@
 # Source qualification: codex 0.163.0
 
+A dated maintainer record of the source reading made on 16 October 2026,
+before the probe run and before release. Its result was adopted in bare-codex
+0.2.1, released 17 October 2026. The current account of each native fact is
+[NATIVE-0.163.0.md](NATIVE-0.163.0.md); what the release changed for
+consumers is in the [CHANGELOG](../CHANGELOG.md). Apart from this paragraph
+and *Since*, the record is as written on that date.
+
 | Item | Value |
 |---|---|
 | Date | 2026-10-16 |
@@ -50,8 +57,9 @@ was changed.
 ## Since
 
 The probe has been run once, with `--allow-version-drift`, against a stock
-0.163.0 binary: [MEASURED-0.163.0.md](MEASURED-0.163.0.md). Each thread
-the probe looked for had a fully parsed rollout under `sessions/`, and P1 and
-P3 read them; other storage was not examined. On
-that basis, bare-codex 0.2.1 (unreleased) sets `MEASURED_NATIVE_VERSION`
-to `0.163.0`. This record is unchanged above.
+0.163.0 binary: [MEASURED-0.163.0.md](MEASURED-0.163.0.md). It observed all
+13 of the 0.162.1 observations again, the same way. Each thread the probe
+looked for had a fully parsed rollout under `sessions/`, and P1 and P3 read
+them; other storage was not examined. On that basis, bare-codex 0.2.1,
+released 17 October 2026, sets `MEASURED_NATIVE_VERSION` to `0.163.0` and
+cites the 0.163.0 sources in its comments and messages.

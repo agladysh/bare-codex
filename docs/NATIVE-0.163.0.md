@@ -1,16 +1,19 @@
 # Native contract of codex 0.163.0: source qualification
 
+A maintainer record: the native facts bare-codex relies on, with their
+sources. For using bare-codex, see the [README](../README.md).
+
 Every row of [NATIVE-0.162.1.md](NATIVE-0.162.1.md), checked against the
 openai/codex sources of `rust-v0.163.0`. The rows are a reading of source.
 No binary was run for them, so no row's source column is an observation.
 
-bare-codex 0.2.1 (unreleased) is measured against 0.163.0
-(`MEASURED_NATIVE_VERSION`, revision `83086188`). The concise source result
-is in [QUALIFICATION-0.163.0.md](QUALIFICATION-0.163.0.md). One probe run
-against a stock 0.163.0 binary is in [MEASURED-0.163.0.md](MEASURED-0.163.0.md),
-and the two open rows it bears on (P3 and P6) say so. bare-codex 0.2.0 and
-earlier were measured against 0.162.1, and outcomes they produced with a
-0.163.0 binary carry `native-version-unmeasured`.
+From bare-codex 0.2.1, released 17 October 2026, `MEASURED_NATIVE_VERSION`
+is 0.163.0 (revision `83086188`). The concise source result is in
+[QUALIFICATION-0.163.0.md](QUALIFICATION-0.163.0.md). One probe run against a
+stock 0.163.0 binary is in [MEASURED-0.163.0.md](MEASURED-0.163.0.md), and the
+two open rows it bears on (P3 and P6) say so. bare-codex 0.2.0 and earlier
+were measured against 0.162.1, and outcomes they produce with a 0.163.0
+binary carry `native-version-unmeasured`.
 
 ## Sources
 
