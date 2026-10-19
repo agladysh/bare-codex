@@ -30,13 +30,14 @@ otherwise.
 |---|---|
 | Version | 0.2.1, released 17 October 2026. Before 1.0, a minor version can change types and records, as 0.2.0 did ([CHANGELOG](CHANGELOG.md)) |
 | Install | a Git dependency pinned to a release tag or its commit: `"@agladysh/bare-codex": "github:agladysh/bare-codex#v0.2.1"`. There is no package-registry release |
-| Runtime | supported and tested on Bun ≥ 1.3 only, which runs the TypeScript source directly. `runCodex`, `doctor` and executable inspection call Bun's APIs. The pure modules (`./plan`, `./env`, `./events`, `./outcome`, `./types` subpath exports) do not, but are not tested elsewhere; the package root also loads the runner and the lifecycle dependency. POSIX only |
+| Runtime | Bun ≥ 1.3 only. The package ships TypeScript source with no build step, and Bun runs it directly; no other runtime is supported or tested. Bun's APIs are used to spawn native, to hash the executable, and to run its `--version` and `exec --help`. The pure modules (subpath exports `./plan`, `./env`, `./events`, `./outcome`, `./types`) do not use them; the package root also loads the runner and the lifecycle dependency. POSIX only |
 | Codex | built for Codex 0.163.0. Other versions are not refused; runs that spawn them carry a `native-version-unmeasured` diagnostic ([Codex versions](#codex-versions)) |
 
 ## Documentation
 
 - This README: the contracts (auth, configuration, permissions, outcome,
-  stopping, custody), then the library and the CLI.
+  stopping, custody), then examples for the [library](#library) and the
+  [CLI](#cli).
 - [docs/ADOPTION.md](docs/ADOPTION.md): choosing between the CLI, `runCodex`
   and the pure layers; what changes when you replace a hand-written adapter;
   pinning and upgrading.
@@ -75,6 +76,13 @@ its home through `CODEX_HOME`:
 There is no account selection, account pool, lease or retry scheduler here.
 Native Codex owns its own retries; bare-codex records what it reports.
 
+**The environment is inherited.** By default the whole inherited environment
+(`baseEnv`, which `runCodex` takes from `process.env`) is passed to native
+unchanged, and native decides what it passes on to the tools it runs.
+bare-codex removes only what you ask it to (`env.unset`, `--env-unset`, or
+`env.inherit: false` / `--no-inherit-env` to start empty), and checks only the
+five variables below.
+
 **Route-changing variables.** Some variables move native onto another
 credential route, or change where it sends one. bare-codex handles five, taken
 from the Codex 0.163.0 sources: `CODEX_API_KEY` (read ahead of any stored
@@ -90,8 +98,9 @@ login: usage-billed API-key auth), `CODEX_ACCESS_TOKEN`,
 | inherited, with `ambientCredentials: 'pass'` | passed on, recorded as deliberate |
 
 So an inherited `CODEX_API_KEY` never silently moves a run onto usage-billed
-API-key auth, and a deliberately supplied one is not banned. The check covers
-these five variables and nothing else, so it is not auth isolation, and it
+API-key auth, and a deliberately supplied one is not banned. The check is a
+bounded list, not isolation: it covers these five variables and nothing else
+(a variable that is set but blank is not refused), and it
 does not stop other API-key routes, such as a configured provider that reads
 its key from the environment. Codex 0.163.0 also has a
 workload-identity auth route; bare-codex has not read the code that selects
@@ -281,37 +290,63 @@ possibly absent.
 
 ## Library
 
+Before the first run: the `codex` you name must already be logged in (or be
+a launcher that handles that); `outDir` must not exist yet, and its parent
+must (`runCodex` creates only the last component, and throws
+`OutputExistsError` if it exists); and `cwd` must be inside a Git repository,
+or native refuses to start, unless you pass `allowOutsideRepo: true`.
+`bare-codex doctor` checks the executable, `outDir` and the Git root without
+a model call; it does not check the login.
+
 ```ts
 import { runCodex } from '@agladysh/bare-codex';
 
-const { outcome } = await runCodex({
+const { outcome, outDir } = await runCodex({
   codexPath: 'codex',                  // or a managed launcher, or a native path
   cwd: '/path/to/repo',
   prompt: 'Summarise the open TODOs.',
   outDir: '/path/to/runs/2026-10-16T12-00-00',
   permissions: { kind: 'inherit' },
 });
-if (outcome.status === 'completed') console.log(outcome.finalMessage.text);
+if (outcome.status === 'completed') {
+  console.log(outcome.finalMessage.text);
+} else {
+  // refused, failed, stopped, spawn-failed or unknown; detail names any refusal
+  console.error(`${outcome.status} (${outcome.reason}): ${outcome.detail}; records in ${outDir}`);
+}
 ```
 
-With its own supervisor, a consumer can use the pure layers alone. The
-spawning, stdin delivery, raw-output custody and stopping in the comments are
-then the consumer's:
+With its own supervisor, a consumer can use the pure layers alone, imported
+from their subpaths so that the runner is not loaded. Everything marked
+"yours" in the comments, inputs and I/O alike, is then the consumer's:
 
 ```ts
-import { conclude, finishStream, initialStreamState, JsonlSplitter, planInvocation, reduceLine } from '@agladysh/bare-codex';
+import { existsSync, readFileSync } from 'node:fs';
+import { planInvocation } from '@agladysh/bare-codex/plan';
+import { finishStream, initialStreamState, JsonlSplitter, reduceLine } from '@agladysh/bare-codex/events';
+import { conclude } from '@agladysh/bare-codex/outcome';
 
-// executableClass: from inspectExecutable(path), or your own knowledge of what you spawn
-const plan = planInvocation({ codexPath, executableClass, cwd, lastMessageFile, baseEnv: env, prompt, permissions: { kind: 'inherit' } });
+// Yours: codexPath, prompt, an absolute cwd, and an absolute lastMessageFile
+// that no earlier run wrote; executableClass from inspectExecutable
+// ('@agladysh/bare-codex/executable') or your own knowledge of what you spawn.
+const plan = planInvocation({ codexPath, executableClass, cwd, lastMessageFile, baseEnv: process.env, prompt, permissions: { kind: 'inherit' } });
 if (plan.refusals.length > 0) throw new Error(plan.refusals.map(r => r.message).join('; '));
-// spawn [plan.command, ...plan.args] with plan.env, leading a new process group;
-// write plan.stdin and close it; keep raw stdout and stderr; stop with SIGINT first
+
+// Yours: spawn [plan.command, ...plan.args] with exactly plan.env as its
+// environment, leading a new process group; write plan.stdin and close it;
+// keep the raw stdout and stderr bytes; stop it with SIGINT first.
+// stdoutChunks is that stdout as Uint8Array chunks.
 const splitter = new JsonlSplitter();
 let state = initialStreamState();
 for await (const chunk of stdoutChunks) {
   for (const line of splitter.push(chunk)) state = reduceLine(state, line);
 }
 state = finishStream(state, splitter.end());   // a torn last line is reported, not dropped
+
+// Yours, after the process has exited: its exit code and signal, the tail of
+// its stderr, and the last-message file, which native writes only when the
+// turn completed.
+const lastMessage = existsSync(lastMessageFile) ? readFileSync(lastMessageFile, 'utf8') : null;
 const outcome = conclude({
   stream: state, exit: { code, signal }, stderrTail, lastMessage,
   executableClass,                             // so a launcher's refusal is not blamed on native
