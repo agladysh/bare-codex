@@ -28,8 +28,8 @@ otherwise.
 
 | | |
 |---|---|
-| Version | 0.2.1, released 17 October 2026. Before 1.0, a minor version can change types and records, as 0.2.0 did ([CHANGELOG](CHANGELOG.md)) |
-| Install | a Git dependency pinned to a release tag or its commit: `"@agladysh/bare-codex": "github:agladysh/bare-codex#v0.2.1"`. There is no package-registry release |
+| Version | 0.2.2, released 22 October 2026. Before 1.0, a minor version can change types and records, as 0.2.0 did ([CHANGELOG](CHANGELOG.md)) |
+| Install | a Git dependency pinned to a release tag or its commit: `"@agladysh/bare-codex": "github:agladysh/bare-codex#v0.2.2"`. There is no package-registry release |
 | Runtime | Bun ≥ 1.3 only. The package ships TypeScript source with no build step, and Bun runs it directly; no other runtime is supported or tested. Bun's APIs are used to spawn native, to hash the executable, and to run its `--version` and `exec --help`. The pure modules (subpath exports `./plan`, `./env`, `./events`, `./outcome`, `./types`) do not use them; the package root also loads the runner and the lifecycle dependency. POSIX only |
 | Codex | built for Codex 0.163.0. Other versions are not refused; runs that spawn them carry a `native-version-unmeasured` diagnostic ([Codex versions](#codex-versions)) |
 

@@ -1,9 +1,16 @@
 # Changelog
 
 One section per release, newest first. Releases are Git tags, which can be
-pinned directly (`github:agladysh/bare-codex#v0.2.1`); nothing is published
+pinned directly (`github:agladysh/bare-codex#v0.2.2`); nothing is published
 to a package registry. Each section starts with what a consumer moving their
 pin needs to know.
+
+## [0.2.2] — 2026-10-22
+
+- Rebind the lifecycle dependency to the rewritten public history at the same
+  source version, without changing its runtime bytes.
+- Public contribution rules cover confidential client information in source and
+  Git metadata and preserve general utility across clients.
 
 ## [0.2.1] — 2026-10-17
 
@@ -75,7 +82,7 @@ Process-group readings no longer mistake "not permitted" for "empty", and
 ### Changed
 
 - `@agladysh/bare-claude` is pinned to `v0.10.0` (commit
-  `0fa4f8a7c4688fa6b82507fe9a53920147a6cfb7`), whose stop reads the final
+  `47a4d6d9469feafdced557e2346ef88e421f82ed`), whose stop reads the final
   group state with the same recheck and reports every reading.
 
 ### Fixed
