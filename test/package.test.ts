@@ -17,5 +17,5 @@ test('lifecycle comes from the pinned public bare-claude commit, not from a copy
   const pkg = manifest();
   const dependencies = isJsonObject(pkg) ? pkg['dependencies'] : null;
   const spec = isJsonObject(dependencies) ? dependencies['@agladysh/bare-claude'] : null;
-  expect(spec).toBe('github:agladysh/bare-claude#0fa4f8a7c4688fa6b82507fe9a53920147a6cfb7');
+  expect(spec).toBe('github:agladysh/bare-claude#47a4d6d9469feafdced557e2346ef88e421f82ed');
 });

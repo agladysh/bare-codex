@@ -1,6 +1,6 @@
 {
   "name": "@agladysh/bare-codex",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Run Codex (codex exec) headless with caller-owned auth and inherited configuration: pure planner, event reducer and outcome layers, a supervised runner, doctor, a worked CLI and a credential-free native probe.",
   "license": "MIT",
   "type": "module",
@@ -39,7 +39,7 @@
     "bun": ">=1.3"
   },
   "dependencies": {
-    "@agladysh/bare-claude": "github:agladysh/bare-claude#0fa4f8a7c4688fa6b82507fe9a53920147a6cfb7"
+    "@agladysh/bare-claude": "github:agladysh/bare-claude#47a4d6d9469feafdced557e2346ef88e421f82ed"
   },
   "peerDependencies": {
     "typescript": "^7"
